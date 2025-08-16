@@ -38,18 +38,18 @@ const upload = multer({
 });
 
 // Neue Ims für DOCX-Processing
- Docxtemplater = require('docxtemplater');
- PizZip = require('pizzip');
- mammoth = require('mammoth');
+const Docxtemplater = require('docxtemplater');
+const PizZip = require('pizzip');
+const mammoth = require('mammoth');
 
 // Generierte Dateien Verzeichnis
- generatedDir = 'uploads/generated/';
+ const generatedDir = 'uploads/generated/';
 if (!fs.existsSync(generatedDir)) {
     fs.mkdirSync(generatedDir, { recursive: true });
 }
 
- app = express();
-  = process.env. || 3000;
+ const app = express();
+  const PORT = process.env.PORT || 3000;
 
 // Middleware
 app.use(express.json());
@@ -61,7 +61,7 @@ app.use(cors({
 app.use(express.static('public'));
 
 // SQLite Datenbank initialisieren
- db = new sqlite3.Database('government_al.db');
+ const db = new sqlite3.Database('government_portal.db');
 
 // Log-Eintrag erstellen (Hilfsfunktion)
 function createLogEntry(action, performedBy, userRank, details, targetUser = null, ipAddress = null) {
@@ -83,8 +83,8 @@ async function getNextFileNumber() {
                 return reject(err);
             }
             
-             currentNumber = row ? row.current_number : 0;
-             nextNumber = currentNumber + 1;
+             const currentNumber = row ? row.current_number : 0;
+             const nextNumber = currentNumber + 1;
             
             // Update Counter in Datenbank
             db.run('UPDATE file_counters SET current_number = ?, updated_at = CURRENT_TIMESTAMP WHERE prefix = ?', 
@@ -95,10 +95,8 @@ async function getNextFileNumber() {
                 }
                 
                 // Formatiere Nummer mit führenden Nullen (4-stellig)
-                 formattedNumber = nextNumber.toString().padStart(4, '0');
-                
-                // Generiere File-Nummer: B + 4-stellige Zahl + SOCOM
-                 fileNumber = `#B${formattedNumber}-SOCOM`;
+                 const formattedNumber = nextNumber.toString().padStart(4, '0');
+                 const fileNumber = `#B${formattedNumber}-SOCOM`;
                 
                 console.log(`✅ Neue B-Nummer generiert: ${fileNumber}`);
                 resolve(fileNumber);
@@ -2561,4 +2559,5 @@ process.on('SIGINT', () => {
     });
 
 });
+
 
