@@ -59,6 +59,9 @@ app.use(cors({
         : 'http://localhost:3000'
 }));
 app.use(express.static('public'));
+app.get('/', (req, res) => {
+    res.sendFile(path.join(__dirname, 'index.html'));
+});
 
 // SQLite Datenbank initialisieren
  const db = new sqlite3.Database('government_portal.db');
@@ -2559,5 +2562,6 @@ process.on('SIGINT', () => {
     });
 
 });
+
 
 
