@@ -37,7 +37,7 @@ const upload = multer({
     }
 });
 
-// Neue Imports für DOCX-Processing
+// Neue Ims für DOCX-Processing
 const Docxtemplater = require('docxtemplater');
 const PizZip = require('pizzip');
 const mammoth = require('mammoth');
@@ -49,7 +49,7 @@ if (!fs.existsSync(generatedDir)) {
 }
 
 const app = express();
-const PORT = process.env.PORT || 3000;
+const  = process.env. || 3000;
 
 // Middleware
 app.use(express.json());
@@ -61,7 +61,7 @@ app.use(cors({
 app.use(express.static('public'));
 
 // SQLite Datenbank initialisieren
-const db = new sqlite3.Database('government_portal.db');
+const db = new sqlite3.Database('government_al.db');
 
 // Log-Eintrag erstellen (Hilfsfunktion)
 function createLogEntry(action, performedBy, userRank, details, targetUser = null, ipAddress = null) {
@@ -2549,7 +2549,7 @@ app.get('/api/stats', (req, res) => {
 });
 
 // Server starten
-app.listen(PORT, () => {
+app.listen(PORT, '0.0.0.0', () => {
     console.log(`🏛️ Regierungspanel v23-FIXED Backend läuft auf http://localhost:${PORT}`);
     console.log(`📊 SQLite Datenbank: government_portal.db`);
     console.log(`📈 Rang-System aktiviert mit 8 verschiedenen Rängen`);
@@ -2573,4 +2573,5 @@ process.on('SIGINT', () => {
         console.log('Datenbankverbindung geschlossen.');
         process.exit(0);
     });
+
 });
