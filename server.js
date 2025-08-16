@@ -38,18 +38,18 @@ const upload = multer({
 });
 
 // Neue Ims für DOCX-Processing
-const Docxtemplater = require('docxtemplater');
-const PizZip = require('pizzip');
-const mammoth = require('mammoth');
+ Docxtemplater = require('docxtemplater');
+ PizZip = require('pizzip');
+ mammoth = require('mammoth');
 
 // Generierte Dateien Verzeichnis
-const generatedDir = 'uploads/generated/';
+ generatedDir = 'uploads/generated/';
 if (!fs.existsSync(generatedDir)) {
     fs.mkdirSync(generatedDir, { recursive: true });
 }
 
-const app = express();
-const  = process.env. || 3000;
+ app = express();
+  = process.env. || 3000;
 
 // Middleware
 app.use(express.json());
@@ -61,7 +61,7 @@ app.use(cors({
 app.use(express.static('public'));
 
 // SQLite Datenbank initialisieren
-const db = new sqlite3.Database('government_al.db');
+ db = new sqlite3.Database('government_al.db');
 
 // Log-Eintrag erstellen (Hilfsfunktion)
 function createLogEntry(action, performedBy, userRank, details, targetUser = null, ipAddress = null) {
@@ -71,20 +71,6 @@ function createLogEntry(action, performedBy, userRank, details, targetUser = nul
                 if (err) console.error('Log Fehler:', err);
             });
 }
-
-// DOCX Template Processing Functions - Fügen Sie diese in server.js hinzu
-
-// Erweiterte automatische Template-Daten - Ersetzen Sie in server.js
-
-// In der generateDocxFromTemplate Funktion, ersetzen Sie:
-// templateData.generatedDate = new Date().toLocaleDateString('de-DE');
-// templateData.generatedTime = new Date().toLocaleTimeString('de-DE');
-
-// Erweiterte DOCX-Generation mit automatischen File-Nummern
-// Ersetzen Sie die bestehende generateDocxFromTemplate Funktion
-
-// Vereinfachte DOCX-Generation - Ersetzen Sie die generateDocxFromTemplate Funktion
-
 // Vereinfachte Funktion: Nächste B-Nummer generieren
 async function getNextFileNumber() {
     return new Promise((resolve, reject) => {
@@ -97,8 +83,8 @@ async function getNextFileNumber() {
                 return reject(err);
             }
             
-            const currentNumber = row ? row.current_number : 0;
-            const nextNumber = currentNumber + 1;
+             currentNumber = row ? row.current_number : 0;
+             nextNumber = currentNumber + 1;
             
             // Update Counter in Datenbank
             db.run('UPDATE file_counters SET current_number = ?, updated_at = CURRENT_TIMESTAMP WHERE prefix = ?', 
@@ -109,10 +95,10 @@ async function getNextFileNumber() {
                 }
                 
                 // Formatiere Nummer mit führenden Nullen (4-stellig)
-                const formattedNumber = nextNumber.toString().padStart(4, '0');
+                 formattedNumber = nextNumber.toString().padStart(4, '0');
                 
                 // Generiere File-Nummer: B + 4-stellige Zahl + SOCOM
-                const fileNumber = `#B${formattedNumber}-SOCOM`;
+                 fileNumber = `#B${formattedNumber}-SOCOM`;
                 
                 console.log(`✅ Neue B-Nummer generiert: ${fileNumber}`);
                 resolve(fileNumber);
@@ -128,27 +114,27 @@ async function generateDocxFromTemplate(templatePath, answers, outputFilename, s
         console.log('👤 Erstellt von:', submittedBy);
         
         // Template-Datei lesen
-        const templateContent = fs.readFileSync(templatePath, 'binary');
-        const zip = new PizZip(templateContent);
+         templateContent = fs.readFileSync(templatePath, 'binary');
+         zip = new PizZip(templateContent);
         
         // Docxtemplater erstellen
-        const doc = new Docxtemplater(zip, {
+         doc = new Docxtemplater(zip, {
             paragraphLoop: true,
             linebreaks: true,
         });
         
         // Platzhalter durch Antworten ersetzen
-        const templateData = {};
+         templateData = {};
         
         // Konvertiere field-X zu readable names falls möglich
         Object.entries(answers).forEach(([key, value]) => {
-            const cleanKey = key.replace('field-', '');
+             cleanKey = key.replace('field-', '');
             templateData[cleanKey] = Array.isArray(value) ? value.join(', ') : value;
             templateData[key] = Array.isArray(value) ? value.join(', ') : value;
         });
         
         // Lade Benutzerdaten aus der Datenbank
-        const userData = await new Promise((resolve, reject) => {
+         userData = await new Promise((resolve, reject) => {
             db.get('SELECT * FROM users WHERE username = ?', [submittedBy], (err, user) => {
                 if (err) reject(err);
                 else resolve(user || {});
@@ -2575,3 +2561,4 @@ process.on('SIGINT', () => {
     });
 
 });
+
