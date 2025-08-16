@@ -4,7 +4,7 @@
     <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>🏛️</text></svg>">
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Regierungspanel- SQL-Datenbank</title>
+    <title>Regierungspanel</title>
     <style>
         body{font-family:'Segoe UI',sans-serif;background:linear-gradient(135deg,#6a4c93 0%,#8b3b97 50%,#9c4dc4 100%);margin:0;padding:0;min-height:100vh;transition:all 0.3s ease;overflow:hidden}
         
@@ -352,7 +352,7 @@ body.dark .document-item[style*="border-left: 4px solid #17a2b8"] {
                 <button onclick="attemptLogin()">Anmelden</button>
                 <button class="btn-secondary" onclick="showRegister()">Zugangsantrag stellen</button>
                 <div id="loginError" class="error"></div>
-                <div class="db-info">📊 <strong>SQLite Datenbank aktiv:</strong> government_portal.db<br>Alle Daten werden permanent gespeichert</div>
+                <div class="db-info">📊 <strong>Zugriff nur für Mitarbeiter des White House</strong><br>Alle Daten werden permanent gespeichert</div>
             </div>
 
             <!-- Register Screen -->
@@ -3759,4 +3759,5 @@ async function saveTemplateChanges(templateId) {
 </body>
 
 </html>
+
 
