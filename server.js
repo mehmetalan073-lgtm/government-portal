@@ -54,9 +54,9 @@ const PORT = process.env.PORT || 3000;
 app.use(express.json({ limit: '50mb' }));
 app.use(express.urlencoded({ extended: true, limit: '50mb' }));
 
-// 🔧 KORRIGIERTE CORS-Konfiguration
+// 🔧 KORRIGIERTE CORS-Konfiguration FÜR RAILWAY
 app.use(cors({
-    origin: ['http://localhost:3000', 'http://127.0.0.1:3000', 'http://localhost:5000'],
+    origin: true,  // Erlaubt alle Origins (Railway-kompatibel)
     credentials: true,
     methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
     allowedHeaders: ['Content-Type', 'Authorization']
@@ -1782,5 +1782,6 @@ process.on('SIGINT', () => {
         process.exit(0);
     });
 });
+
 
 
