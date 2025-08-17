@@ -3755,9 +3755,579 @@ async function saveTemplateChanges(templateId) {
             console.log('   - testTemplateWorkflow() -> Testet kompletten Fragebogen-Workflow');
             console.log('   - debugServerLogs() -> Zeigt Hinweise für Server-Log Debugging');
         });
+        // ===== TEMPLATE-BEARBEITUNG NUR FÜR ADMINS =====
+
+// 1. BERECHTIGUNGSPRÜFUNG
+function canEditTemplates() {
+    if (!currentSession.user) return false;
+    
+    const userRank = currentSession.user.rank || 'user';
+    const hasAdminRights = hasFullAccess(userRank);
+    
+    console.log('🔐 Berechtigungsprüfung für Template-Bearbeitung:');
+    console.log('- Benutzer:', currentSession.user.username);
+    console.log('- Rang:', userRank);
+    console.log('- Admin-Rechte:', hasAdminRights);
+    
+    return hasAdminRights;
+}
+
+// 2. ADMIN-ONLY EDIT-FUNKTION
+async function editGdocsTemplate(templateId) {
+    console.log('✏️ Template-Bearbeitung angefordert für ID:', templateId);
+    
+    // BERECHTIGUNGSPRÜFUNG
+    if (!canEditTemplates()) {
+        console.warn('❌ Keine Berechtigung für Template-Bearbeitung');
+        alert('❌ Zugriff verweigert!\n\nNur Administratoren und Ränge mit Vollzugriff können Templates bearbeiten.\n\nIhre Berechtigung: ' + (currentSession.user?.rank || 'Unbekannt'));
+        return;
+    }
+    
+    try {
+        showTemporaryMessage('📂 Lade Template-Daten (Admin-Modus)...');
+        
+        const template = await apiCall(`/gdocs-template/${templateId}`);
+        console.log('📋 Template geladen für Admin-Bearbeitung:', template.name);
+        
+        let questionsStatus = 'keine';
+        if (template.questions) {
+            try {
+                const questions = JSON.parse(template.questions);
+                questionsStatus = `${questions.length} Fragen`;
+            } catch (e) {
+                questionsStatus = 'beschädigt';
+            }
+        }
+        
+        showTemporaryMessage(`✏️ Template "${template.name}" wird bearbeitet (${questionsStatus}) - Admin-Modus`);
+        showEditTemplateModal(template);
+        
+    } catch (error) {
+        console.error('❌ Fehler beim Laden des Templates:', error);
+        alert(`Fehler beim Laden: ${error.message}`);
+    }
+}
+
+// 3. ADMIN-ONLY EDIT-MODAL
+function showEditTemplateModal(template) {
+    if (!canEditTemplates()) {
+        alert('❌ Keine Berechtigung für Template-Bearbeitung!');
+        return;
+    }
+    
+    const existingModal = document.getElementById('editTemplateModal');
+    if (existingModal) {
+        existingModal.remove();
+    }
+    
+    const editModal = document.createElement('div');
+    editModal.className = 'documents-modal active';
+    editModal.id = 'editTemplateModal';
+    
+    let existingQuestions = [];
+    if (template.questions) {
+        try {
+            existingQuestions = typeof template.questions === 'string' ? JSON.parse(template.questions) : template.questions;
+        } catch (e) {
+            existingQuestions = [];
+        }
+    }
+    
+    const adminBadge = `<div style="background: linear-gradient(135deg, #dc3545 0%, #c82333 100%); color: white; padding: 8px 15px; border-radius: 6px; margin-bottom: 15px; text-align: center; font-weight: 600;">
+        🛡️ ADMINISTRATOR-MODUS - Vollzugriff auf Template-Bearbeitung
+        <div style="font-size: 12px; margin-top: 4px; opacity: 0.9;">
+            Angemeldet als: ${currentSession.user.username} (${getRankDisplay(currentSession.user.rank)})
+        </div>
+    </div>`;
+    
+    editModal.innerHTML = `
+        <div class="documents-modal-content" style="max-width: 1000px; max-height: 90vh;">
+            <div class="documents-modal-header" style="background: linear-gradient(135deg, #dc3545 0%, #c82333 100%);">
+                <h2 class="documents-modal-title">🛡️ Template bearbeiten (Admin): ${template.name}</h2>
+                <button class="documents-modal-close" onclick="closeEditTemplateModal()">×</button>
+            </div>
+            <div class="documents-modal-body" style="overflow-y: auto;">
+                ${adminBadge}
+                
+                <form id="editTemplateForm">
+                    <div class="form-group">
+                        <label>Template-Name:</label>
+                        <input type="text" id="editTemplateName" value="${template.name}" required>
+                    </div>
+                    <div class="form-group">
+                        <label>Beschreibung:</label>
+                        <textarea id="editTemplateDescription" rows="3">${template.description || ''}</textarea>
+                    </div>
+                    <div class="form-group">
+                        <label>Neue DOCX-Datei hochladen (optional):</label>
+                        <input type="file" id="editTemplateFile" accept=".docx">
+                        <div style="font-size: 12px; color: #666; margin-top: 5px;">
+                            Aktuelle Datei: ${template.original_filename}
+                        </div>
+                    </div>
+                    <div class="form-group">
+                        <label>Verfügbar für Ränge:</label>
+                        <div class="gdocs-rank-selector">
+                            <label><input type="checkbox" value="besucher" ${template.available_ranks.includes('besucher') ? 'checked' : ''}> Besucher</label>
+                            <label><input type="checkbox" value="user" ${template.available_ranks.includes('user') ? 'checked' : ''}> User</label>
+                            <label><input type="checkbox" value="socom-operator" ${template.available_ranks.includes('socom-operator') ? 'checked' : ''}> SOCOM</label>
+                            <label><input type="checkbox" value="kabinettsmitglied" ${template.available_ranks.includes('kabinettsmitglied') ? 'checked' : ''}> Kabinett</label>
+                            <label><input type="checkbox" value="admin" ${template.available_ranks.includes('admin') ? 'checked' : ''}> Admin+</label>
+                        </div>
+                    </div>
+                    
+                    <div class="form-group full-width">
+                        <label>🛡️ Fragebogen-Felder bearbeiten (nur Administratoren):</label>
+                        <div id="editQuestionsList" class="questions-container" style="border: 2px solid #dc3545;">
+                        </div>
+                        <button type="button" onclick="addEditQuestion()" class="btn-secondary" 
+                                style="width: auto; padding: 8px 16px; margin: 10px 0; background: linear-gradient(135deg, #28a745 0%, #20a038 100%); color: white;">
+                            ➕ Admin: Frage hinzufügen
+                        </button>
+                    </div>
+                </form>
+                
+                <div style="margin-top: 20px; text-align: right; border-top: 2px solid #dc3545; padding-top: 20px;">
+                    <button onclick="closeEditTemplateModal()" class="btn-secondary" style="width: auto; padding: 10px 20px; margin-right: 10px;">Abbrechen</button>
+                    <button onclick="saveTemplateChanges(${template.id})" class="btn-success" 
+                            style="width: auto; padding: 10px 20px; background: linear-gradient(135deg, #dc3545 0%, #c82333 100%); border: none;">
+                        🛡️ Admin: Speichern
+                    </button>
+                </div>
+                
+                <div id="editTemplateError" class="error"></div>
+                <div id="editTemplateSuccess" class="success"></div>
+            </div>
+        </div>
+    `;
+    
+    document.body.appendChild(editModal);
+    loadExistingQuestionsIntoEditor(existingQuestions);
+    
+    editModal.addEventListener('click', function(e) {
+        if (e.target === editModal) {
+            closeEditTemplateModal();
+        }
+    });
+}
+
+// 4. FRAGEN IN EDITOR LADEN
+function loadExistingQuestionsIntoEditor(questions) {
+    const questionsContainer = document.getElementById('editQuestionsList');
+    if (!questionsContainer) return;
+    
+    questionCounter = 0;
+    questionsContainer.innerHTML = '';
+    
+    if (!questions || questions.length === 0) return;
+    
+    questions.forEach((question, index) => {
+        questionCounter++;
+        const questionDiv = document.createElement('div');
+        questionDiv.className = 'question-item';
+        questionDiv.id = `edit-question-${questionCounter}`;
+        
+        questionDiv.innerHTML = `
+            <div class="question-header">
+                <span class="question-number">Frage ${questionCounter}</span>
+                <button type="button" class="question-remove" onclick="removeEditQuestion(${questionCounter})">🗑️ Entfernen</button>
+            </div>
+            <div class="question-fields">
+                <div class="form-group">
+                    <label>Frage-Text:</label>
+                    <input type="text" id="edit-question-text-${questionCounter}" value="${question.text || ''}" data-question-id="${questionCounter}">
+                </div>
+                <div class="form-group">
+                    <label>Feld-Typ:</label>
+                    <select id="edit-question-type-${questionCounter}" data-question-id="${questionCounter}">
+                        <option value="text" ${question.type === 'text' ? 'selected' : ''}>Text (Einzeilig)</option>
+                        <option value="textarea" ${question.type === 'textarea' ? 'selected' : ''}>Text (Mehrzeilig)</option>
+                        <option value="email" ${question.type === 'email' ? 'selected' : ''}>E-Mail</option>
+                        <option value="tel" ${question.type === 'tel' ? 'selected' : ''}>Telefon</option>
+                        <option value="date" ${question.type === 'date' ? 'selected' : ''}>Datum</option>
+                        <option value="number" ${question.type === 'number' ? 'selected' : ''}>Zahl</option>
+                        <option value="select" ${question.type === 'select' ? 'selected' : ''}>Auswahl (Dropdown)</option>
+                        <option value="radio" ${question.type === 'radio' ? 'selected' : ''}>Auswahl (Radio)</option>
+                        <option value="checkbox" ${question.type === 'checkbox' ? 'selected' : ''}>Checkboxen</option>
+                    </select>
+                </div>
+                <div class="form-group">
+                    <label>Platzhalter:</label>
+                    <input type="text" id="edit-question-placeholder-${questionCounter}" value="${question.placeholder || ''}" data-question-id="${questionCounter}">
+                </div>
+                <div class="form-group">
+                    <label>Erforderlich:</label>
+                    <label style="margin-top: 8px;">
+                        <input type="checkbox" id="edit-question-required-${questionCounter}" data-question-id="${questionCounter}" ${question.required ? 'checked' : ''}> Pflichtfeld
+                    </label>
+                </div>
+                <div class="form-group full" id="edit-question-options-${questionCounter}" style="display: ${['select', 'radio', 'checkbox'].includes(question.type) ? 'block' : 'none'};">
+                    <label>Auswahloptionen (eine pro Zeile):</label>
+                    <textarea id="edit-question-options-text-${questionCounter}" rows="3" data-question-id="${questionCounter}">${question.options ? question.options.join('\n') : ''}</textarea>
+                </div>
+            </div>
+        `;
+        
+        questionsContainer.appendChild(questionDiv);
+        
+        const typeSelect = document.getElementById(`edit-question-type-${questionCounter}`);
+        if (typeSelect) {
+            typeSelect.addEventListener('change', function() {
+                toggleEditOptionsField(questionCounter, this.value);
+            });
+        }
+    });
+}
+
+// 5. NEUE FRAGE HINZUFÜGEN
+function addEditQuestion() {
+    questionCounter++;
+    const questionsContainer = document.getElementById('editQuestionsList');
+    
+    if (!questionsContainer) return;
+    
+    const questionDiv = document.createElement('div');
+    questionDiv.className = 'question-item';
+    questionDiv.id = `edit-question-${questionCounter}`;
+    
+    questionDiv.innerHTML = `
+        <div class="question-header">
+            <span class="question-number">Frage ${questionCounter} <span style="color: #28a745; font-size: 11px;">(NEU)</span></span>
+            <button type="button" class="question-remove" onclick="removeEditQuestion(${questionCounter})">🗑️ Entfernen</button>
+        </div>
+        <div class="question-fields">
+            <div class="form-group">
+                <label>Frage-Text:</label>
+                <input type="text" id="edit-question-text-${questionCounter}" placeholder="z.B. Vollständiger Name" data-question-id="${questionCounter}">
+            </div>
+            <div class="form-group">
+                <label>Feld-Typ:</label>
+                <select id="edit-question-type-${questionCounter}" data-question-id="${questionCounter}">
+                    <option value="text">Text (Einzeilig)</option>
+                    <option value="textarea">Text (Mehrzeilig)</option>
+                    <option value="email">E-Mail</option>
+                    <option value="tel">Telefon</option>
+                    <option value="date">Datum</option>
+                    <option value="number">Zahl</option>
+                    <option value="select">Auswahl (Dropdown)</option>
+                    <option value="radio">Auswahl (Radio)</option>
+                    <option value="checkbox">Checkboxen</option>
+                </select>
+            </div>
+            <div class="form-group">
+                <label>Platzhalter:</label>
+                <input type="text" id="edit-question-placeholder-${questionCounter}" placeholder="z.B. Vor- und Nachname" data-question-id="${questionCounter}">
+            </div>
+            <div class="form-group">
+                <label>Erforderlich:</label>
+                <label style="margin-top: 8px;"><input type="checkbox" id="edit-question-required-${questionCounter}" data-question-id="${questionCounter}" checked> Pflichtfeld</label>
+            </div>
+            <div class="form-group full" id="edit-question-options-${questionCounter}" style="display: none;">
+                <label>Auswahloptionen (eine pro Zeile):</label>
+                <textarea id="edit-question-options-text-${questionCounter}" placeholder="Option 1&#10;Option 2&#10;Option 3" rows="3" data-question-id="${questionCounter}"></textarea>
+            </div>
+        </div>
+    `;
+    
+    questionsContainer.appendChild(questionDiv);
+    
+    const typeSelect = document.getElementById(`edit-question-type-${questionCounter}`);
+    typeSelect.addEventListener('change', function() {
+        toggleEditOptionsField(questionCounter, this.value);
+    });
+    
+    questionDiv.scrollIntoView({ behavior: 'smooth', block: 'center' });
+}
+
+// 6. FRAGE ENTFERNEN
+function removeEditQuestion(questionId) {
+    const questionDiv = document.getElementById(`edit-question-${questionId}`);
+    if (questionDiv) {
+        if (confirm('Diese Frage wirklich entfernen?')) {
+            questionDiv.remove();
+        }
+    }
+}
+
+// 7. OPTIONS TOGGLE
+function toggleEditOptionsField(questionId, fieldType) {
+    const optionsDiv = document.getElementById(`edit-question-options-${questionId}`);
+    if (optionsDiv) {
+        const showOptions = ['select', 'radio', 'checkbox'].includes(fieldType);
+        optionsDiv.style.display = showOptions ? 'block' : 'none';
+    }
+}
+
+// 8. FRAGEN SAMMELN
+function collectEditQuestions() {
+    const questions = [];
+    const questionItems = document.querySelectorAll('#editQuestionsList .question-item');
+    
+    questionItems.forEach((item, index) => {
+        const questionId = item.id.split('-')[2];
+        const text = document.getElementById(`edit-question-text-${questionId}`)?.value.trim();
+        const type = document.getElementById(`edit-question-type-${questionId}`)?.value;
+        const placeholder = document.getElementById(`edit-question-placeholder-${questionId}`)?.value.trim();
+        const required = document.getElementById(`edit-question-required-${questionId}`)?.checked;
+        const optionsText = document.getElementById(`edit-question-options-text-${questionId}`)?.value.trim();
+        
+        if (text) {
+            const question = {
+                id: questionId,
+                order: index + 1,
+                text: text,
+                type: type,
+                placeholder: placeholder || '',
+                required: required || false,
+                options: optionsText ? optionsText.split('\n').filter(opt => opt.trim()) : []
+            };
+            questions.push(question);
+        }
+    });
+    
+    return questions;
+}
+
+// 9. SPEICHERN
+async function saveTemplateChanges(templateId) {
+    const name = document.getElementById('editTemplateName').value.trim();
+    const description = document.getElementById('editTemplateDescription').value.trim();
+    const fileInput = document.getElementById('editTemplateFile');
+    
+    if (!name) {
+        showError('editTemplateError', 'Name ist erforderlich');
+        return;
+    }
+    
+    const questions = collectEditQuestions();
+    const rankCheckboxes = document.querySelectorAll('#editTemplateModal input[type="checkbox"]:checked');
+    const availableRanks = Array.from(rankCheckboxes).map(cb => cb.value);
+    
+    if (availableRanks.length === 0) {
+        showError('editTemplateError', 'Mindestens ein Rang muss ausgewählt werden');
+        return;
+    }
+    
+    const formData = new FormData();
+    formData.append('name', name);
+    formData.append('description', description);
+    formData.append('availableRanks', availableRanks.join(','));
+    formData.append('questions', JSON.stringify(questions));
+    formData.append('adminUsername', currentSession.user.username);
+    
+    if (fileInput.files[0]) {
+        formData.append('templateFile', fileInput.files[0]);
+    }
+    
+    try {
+        const response = await fetch(`${API_BASE}/update-gdocs-template/${templateId}`, {
+            method: 'PUT',
+            body: formData
+        });
+        
+        if (!response.ok) {
+            throw new Error(`HTTP ${response.status}: ${response.statusText}`);
+        }
+        
+        const result = await response.json();
+        showSuccess('editTemplateSuccess', `🛡️ Template mit ${questions.length} Fragen erfolgreich aktualisiert!`);
+        
+        setTimeout(() => {
+            closeEditTemplateModal();
+            loadGdocsTemplates();
+        }, 1500);
+        
+    } catch (error) {
+        showError('editTemplateError', error.message);
+    }
+}
+
+// 10. MODAL SCHLIEßEN
+function closeEditTemplateModal() {
+    const modal = document.getElementById('editTemplateModal');
+    if (modal) {
+        modal.remove();
+    }
+    questionCounter = 0;
+}
+
+// 11. ADMIN-ONLY DELETE
+async function deleteGdocsTemplate(templateId) {
+    if (!canEditTemplates()) {
+        alert('❌ Zugriff verweigert!\n\nNur Administratoren können Templates löschen.');
+        return;
+    }
+    
+    if (!confirm('🛡️ ADMINISTRATOR-AKTION\n\nTemplate wirklich löschen?')) return;
+    
+    try {
+        await apiCall(`/gdocs-templates/${templateId}`, {
+            method: 'DELETE',
+            body: JSON.stringify({ adminUsername: currentSession.user.username })
+        });
+        
+        alert('🛡️ Template erfolgreich gelöscht!');
+        loadGdocsTemplates();
+        
+    } catch (error) {
+        alert(`❌ Fehler: ${error.message}`);
+    }
+}
+
+// 12. ADMIN-ONLY CREATE
+async function createGdocsTemplate() {
+    if (!canEditTemplates()) {
+        alert('❌ Zugriff verweigert!\n\nNur Administratoren können Templates erstellen.');
+        return;
+    }
+    
+    const questions = collectQuestions();
+    const fileInput = document.getElementById('templateFile');
+    const file = fileInput.files[0];
+    
+    if (!file) {
+        showError('gdocsCreateError', 'Bitte wählen Sie eine DOCX-Datei aus.');
+        return;
+    }
+    
+    if (!file.name.toLowerCase().endsWith('.docx')) {
+        showError('gdocsCreateError', 'Nur DOCX-Dateien sind erlaubt.');
+        return;
+    }
+    
+    if (questions.length === 0) {
+        showError('gdocsCreateError', 'Bitte fügen Sie mindestens eine Frage hinzu.');
+        return;
+    }
+    
+    const formData = new FormData();
+    formData.append('templateFile', file);
+    formData.append('name', document.getElementById('templateName').value.trim());
+    formData.append('description', document.getElementById('templateDescription').value.trim());
+    formData.append('createdBy', currentSession.user.username);
+    formData.append('questions', JSON.stringify(questions));
+
+    const rankCheckboxes = document.querySelectorAll('#gdocsTabContent input[type="checkbox"]:checked');
+    const availableRanks = Array.from(rankCheckboxes).map(cb => cb.value);
+    availableRanks.forEach(rank => {
+        formData.append('availableRanks', rank);
+    });
+
+    try {
+        const response = await fetch(`${API_BASE}/create-gdocs-template`, {
+            method: 'POST',
+            body: formData
+        });
+
+        if (!response.ok) {
+            throw new Error(`HTTP ${response.status}: ${response.statusText}`);
+        }
+
+        const result = await response.json();
+        showSuccess('gdocsCreateSuccess', `🛡️ Admin-Template mit ${questions.length} Fragen erstellt!`);
+        
+        document.getElementById('templateName').value = '';
+        document.getElementById('templateFile').value = '';
+        document.getElementById('templateDescription').value = '';
+        document.getElementById('questionsList').innerHTML = '';
+        questionCounter = 0;
+        
+        loadGdocsTemplates();
+
+    } catch (error) {
+        showError('gdocsCreateError', error.message);
+    }
+}
+
+// 13. ADMIN-TEMPLATE-LISTE
+function updateGdocsTemplatesList(templates) {
+    const container = document.getElementById('gdocsTemplatesList');
+    if (!container) return;
+    
+    if (templates.length === 0) {
+        container.innerHTML = '<p style="text-align: center; color: #666; padding: 20px;">Noch keine Templates erstellt</p>';
+        return;
+    }
+
+    const canEdit = canEditTemplates();
+    const userRank = currentSession.user?.rank || 'user';
+
+    container.innerHTML = templates.map(template => {
+        let questionsInfo = '';
+        let questionsCount = 0;
+        
+        if (template.questions) {
+            try {
+                const questions = typeof template.questions === 'string' ? JSON.parse(template.questions) : template.questions;
+                questionsCount = questions.length;
+                
+                questionsInfo = `<p><strong>Fragen:</strong> 
+                    <span style="color: #28a745; font-weight: 600;">${questionsCount} definiert</span>
+                    ${canEdit ? 
+                        '<span style="background: #dc3545; color: white; padding: 2px 6px; border-radius: 3px; font-size: 11px; margin-left: 8px;">🛡️ ADMIN-BEARBEITBAR</span>' :
+                        '<span style="background: #6c757d; color: white; padding: 2px 6px; border-radius: 3px; font-size: 11px; margin-left: 8px;">🔒 NUR ANSICHT</span>'
+                    }
+                </p>`;
+            } catch (e) {
+                questionsInfo = '<p><strong>Fragen:</strong> <span style="color: #dc3545;">Fehlerhaft - Admin-Reparatur erforderlich</span></p>';
+            }
+        } else {
+            questionsInfo = `<p><strong>Fragen:</strong> <span style="color: #ffc107;">Keine definiert</span>
+                ${canEdit ? ' - <span style="color: #dc3545; font-weight: 600;">Als Admin hinzufügen!</span>' : ''}
+            </p>`;
+        }
+        
+        const editButton = canEdit ? 
+            `<button class="btn-warning" onclick="editGdocsTemplate(${template.id})" title="Template bearbeiten (Admin)">🛡️ Admin: Bearbeiten</button>` :
+            `<button class="btn-secondary" onclick="alert('❌ Nur Administratoren können Templates bearbeiten!\\n\\nIhre Berechtigung: ${getRankDisplay(userRank)}')" title="Keine Berechtigung">🔒 Keine Berechtigung</button>`;
+        
+        const deleteButton = canEdit ? 
+            `<button class="btn-danger" onclick="deleteGdocsTemplate(${template.id})" title="Template löschen (Admin)">🛡️ Admin: Löschen</button>` :
+            '';
+        
+        return `
+            <div class="document-item" style="border-left: 4px solid ${canEdit ? (questionsCount > 0 ? '#28a745' : '#ffc107') : '#6c757d'};">
+                <div class="document-date">
+                    Erstellt: ${new Date(template.created_at).toLocaleString('de-DE')}
+                    ${canEdit ? '<span style="background: #dc3545; color: white; padding: 2px 6px; border-radius: 3px; font-size: 10px; margin-left: 8px;">🛡️ ADMIN-ZUGRIFF</span>' : ''}
+                </div>
+                <div class="document-title">📝 ${template.name}</div>
+                <div class="document-details">
+                    <p><strong>Beschreibung:</strong> ${template.description}</p>
+                    <p><strong>DOCX-Datei:</strong> ${template.original_filename || 'Unbekannt'}</p>
+                    <p><strong>Verfügbar für:</strong> ${template.available_ranks}</p>
+                    ${questionsInfo}
+                    <p><strong>Erstellt von:</strong> ${template.created_by}</p>
+                </div>
+                <div class="document-actions">
+                    <button class="btn-secondary" onclick="downloadTemplate(${template.id})">📄 DOCX</button>
+                    <button class="btn-success" onclick="previewQuestions(${template.id})">👁️ Fragen</button>
+                    ${editButton}
+                    ${deleteButton}
+                </div>
+            </div>
+        `;
+    }).join('');
+    
+    if (!canEdit) {
+        container.innerHTML += `
+            <div style="background: linear-gradient(135deg, #f8d7da 0%, #f5c6cb 100%); border: 1px solid #f5c6cb; border-radius: 6px; padding: 15px; margin-top: 20px; text-align: center;">
+                <h4 style="color: #721c24; margin: 0 0 10px 0;">🔒 Eingeschränkte Berechtigung</h4>
+                <p style="color: #721c24; margin: 0; font-size: 14px;">
+                    Sie können Templates nur ansehen und ausfüllen.<br>
+                    <strong>Bearbeitung nur für Administratoren verfügbar.</strong>
+                </p>
+                <p style="color: #856404; margin: 10px 0 0 0; font-size: 12px;">
+                    Ihr Rang: <strong>${getRankDisplay(userRank)}</strong>
+                </p>
+            </div>
+        `;
+    }
+}
     </script>
 </body>
 
 </html>
+
 
 
