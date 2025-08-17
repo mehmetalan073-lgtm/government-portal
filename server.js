@@ -1583,7 +1583,6 @@ db.run(`CREATE TABLE IF NOT EXISTS file_counters (
                     console.log(`✅ Counter für Prefix "${prefix}" initialisiert`);
                 }
             });
-        });
     }
 });
 
@@ -1747,9 +1746,6 @@ db.run(`CREATE TABLE IF NOT EXISTS gdocs_templates (
                     }
                 });
             }
-        }
-    });
-    });
 // API Endpoints
 
 // Login
@@ -2675,6 +2671,7 @@ process.on('SIGINT', () => {
     });
 
 });
+
 
 
 
