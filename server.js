@@ -427,27 +427,6 @@ db.serialize(() => {
         }
     });
 
-    // File Counter Tabelle für automatische Nummern
-    db.run(`CREATE TABLE IF NOT EXISTS file_counters (
-        id INTEGER PRIMARY KEY AUTOINCREMENT,
-        prefix TEXT NOT NULL UNIQUE,
-        current_number INTEGER DEFAULT 0,
-        created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
-        updated_at DATETIME DEFAULT CURRENT_TIMESTAMP
-    )`, (err) => {
-        if (!err) {
-            console.log('✅ File Counters Tabelle erstellt');
-            
-            // Nur B-Counter initialisieren
-            db.run(`INSERT OR IGNORE INTO file_counters (prefix, current_number) VALUES ('B', 0)`, 
-                   (err) => {
-                if (!err) {
-                    console.log('✅ B-Counter (Bewertung) initialisiert');
-                }
-            });
-        }
-    });
-
     // Username Change Requests Tabelle
     db.run(`CREATE TABLE IF NOT EXISTS username_change_requests (
         id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -1889,6 +1868,7 @@ db.run(`CREATE TABLE IF NOT EXISTS file_counters (
                     console.log(`✅ Counter für Prefix "${prefix}" initialisiert`);
                 }
             });
+        });
     }
 });
 
@@ -2977,6 +2957,7 @@ process.on('SIGINT', () => {
     });
 
 });
+
 
 
 
