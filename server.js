@@ -230,6 +230,34 @@ function getRankDisplay(rank) {
     };
     return rankDisplays[rank] || 'USER';
 }
+// ===== ADMIN-BERECHTIGUNGEN SERVER =====
+
+function hasFullAccessServer(rank) {
+    const fullAccessRanks = ['nc-team', 'president', 'vice-president', 'admin'];
+    return fullAccessRanks.includes(rank);
+}
+
+async function getUserPermissions(username) {
+    return new Promise((resolve, reject) => {
+        db.get('SELECT username, rank, full_name FROM users WHERE username = ? AND status = "approved"', 
+               [username], (err, user) => {
+            if (err) {
+                reject(err);
+            } else if (!user) {
+                reject(new Error('Benutzer nicht gefunden oder nicht genehmigt'));
+            } else {
+                const hasFullAccess = hasFullAccessServer(user.rank || 'user');
+                resolve({
+                    username: user.username,
+                    rank: user.rank || 'user',
+                    fullName: user.full_name,
+                    hasFullAccess: hasFullAccess,
+                    canEditTemplates: hasFullAccess
+                });
+            }
+        });
+    });
+}
 
 // Funktion: DOCX zu HTML für Vorschau konvertieren
 async function convertDocxToHtml(docxPath) {
@@ -2562,6 +2590,7 @@ process.on('SIGINT', () => {
     });
 
 });
+
 
 
 
