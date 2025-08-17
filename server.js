@@ -2242,7 +2242,82 @@ app.delete('/api/documents/:id', (req, res) => {
 });
 
 // G-Docs Template erstellen (GEÄNDERT: mit DOCX-Upload)
-app.post('/api/create-gdocs-template', upload.single('templateFile'), (req, res) => {
+app.post('/api/create-gdocs-template', upload.single('templateFile'), async (req, res) => {
+    console.log('🛡️ Template-Erstellung Anfrage');
+    
+    if (!req.file) {
+        return res.status(400).json({ error: 'Keine DOCX-Datei hochgeladen' });
+    }
+    
+    const { name, description, createdBy } = req.body;
+    let { availableRanks, questions } = req.body;
+    
+    if (!name || !createdBy) {
+        return res.status(400).json({ error: 'Name und Ersteller sind erforderlich' });
+    }
+    
+    try {
+        console.log('🔐 Prüfe Erstellungs-Berechtigungen für:', createdBy);
+        const userPerms = await getUserPermissions(createdBy);
+        
+        if (!userPerms.canEditTemplates) {
+            console.error('❌ Unberechtigter Template-Erstellungs-Versuch:', createdBy);
+            
+            createLogEntry('UNAUTHORIZED_TEMPLATE_CREATE_ATTEMPT', createdBy, userPerms.rank, 
+                          `Unbefugter Versuch Template "${name}" zu erstellen`, null, req.ip);
+            
+            return res.status(403).json({ 
+                error: 'Zugriff verweigert: Template-Erstellung nur für Administratoren',
+                userRank: userPerms.rank
+            });
+        }
+        
+        console.log('✅ Admin-Berechtigung für Template-Erstellung bestätigt');
+        
+    } catch (permError) {
+        console.error('❌ Fehler bei Erstellungs-Berechtigungsprüfung:', permError);
+        return res.status(401).json({ 
+            error: 'Berechtigungsprüfung fehlgeschlagen'
+        });
+    }
+    
+    if (typeof availableRanks === 'string') {
+        availableRanks = [availableRanks];
+    }
+    const ranksString = Array.isArray(availableRanks) ? availableRanks.join(',') : availableRanks;
+    
+    let questionsString = null;
+    if (questions) {
+        try {
+            const questionsObj = typeof questions === 'string' ? JSON.parse(questions) : questions;
+            questionsString = JSON.stringify(questionsObj);
+        } catch (e) {
+            questionsString = null;
+        }
+    }
+    
+    db.run(`INSERT INTO gdocs_templates (name, description, file_path, original_filename, available_ranks, questions, created_by) 
+            VALUES (?, ?, ?, ?, ?, ?, ?)`,
+            [name, description, req.file.path, req.file.originalname, ranksString, questionsString, createdBy],
+            function(err) {
+                if (err) {
+                    console.error('❌ Admin-Template-Upload Fehler:', err);
+                    return res.status(500).json({ error: 'Fehler beim Speichern der Vorlage' });
+                }
+                
+                console.log('✅ Admin-Template erfolgreich erstellt');
+                
+                const questionsCount = questionsString ? JSON.parse(questionsString).length : 0;
+                createLogEntry('TEMPLATE_CREATED_BY_ADMIN', createdBy, 'admin', 
+                              `DOCX-Vorlage "${name}" mit ${questionsCount} Fragen erstellt - ADMIN`, null, req.ip);
+                
+                res.json({ 
+                    success: true, 
+                    templateId: this.lastID,
+                    message: 'Template erfolgreich erstellt (Administrator)'
+                });
+            });
+});
     console.log('📁 Template-Upload gestartet');
     console.log('📁 Datei:', req.file);
     console.log('📋 Formulardaten:', req.body);
@@ -2656,6 +2731,7 @@ process.on('SIGINT', () => {
     });
 
 });
+
 
 
 
