@@ -230,34 +230,6 @@ function getRankDisplay(rank) {
     };
     return rankDisplays[rank] || 'USER';
 }
-// ===== ADMIN-BERECHTIGUNGEN SERVER =====
-
-function hasFullAccessServer(rank) {
-    const fullAccessRanks = ['nc-team', 'president', 'vice-president', 'admin'];
-    return fullAccessRanks.includes(rank);
-}
-
-async function getUserPermissions(username) {
-    return new Promise((resolve, reject) => {
-        db.get('SELECT username, rank, full_name FROM users WHERE username = ? AND status = "approved"', 
-               [username], (err, user) => {
-            if (err) {
-                reject(err);
-            } else if (!user) {
-                reject(new Error('Benutzer nicht gefunden oder nicht genehmigt'));
-            } else {
-                const hasFullAccess = hasFullAccessServer(user.rank || 'user');
-                resolve({
-                    username: user.username,
-                    rank: user.rank || 'user',
-                    fullName: user.full_name,
-                    hasFullAccess: hasFullAccess,
-                    canEditTemplates: hasFullAccess
-                });
-            }
-        });
-    });
-}
 
 // Funktion: DOCX zu HTML für Vorschau konvertieren
 async function convertDocxToHtml(docxPath) {
@@ -325,71 +297,18 @@ async function viewDocumentDetails(docId) {
     }
 }
 // Template bearbeiten
-app.put('/api/update-gdocs-template/:id', upload.single('templateFile'), async (req, res) => {
+app.put('/api/update-gdocs-template/:id', upload.single('templateFile'), (req, res) => {
     const { id } = req.params;
-    console.log('🛡️ Template-Update Anfrage für ID:', id);
-    
-    const { name, description, availableRanks, questions, adminUsername } = req.body;
-    
-    let requestingUser = adminUsername || req.body.createdBy || req.body.updatedBy;
-    
-    if (!requestingUser) {
-        return res.status(400).json({ 
-            error: 'Benutzer-Identifikation erforderlich für Template-Bearbeitung'
-        });
-    }
-    
-    try {
-        console.log('🔐 Prüfe Berechtigungen für:', requestingUser);
-        const userPerms = await getUserPermissions(requestingUser);
-        
-        if (!userPerms.canEditTemplates) {
-            console.error('❌ Unberechtigter Template-Update Versuch von:', requestingUser);
-            
-            createLogEntry('UNAUTHORIZED_TEMPLATE_EDIT_ATTEMPT', requestingUser, userPerms.rank, 
-                          `Unbefugter Versuch Template ${id} zu bearbeiten`, null, req.ip);
-            
-            return res.status(403).json({ 
-                error: 'Zugriff verweigert: Template-Bearbeitung nur für Administratoren',
-                userRank: userPerms.rank,
-                requiredRanks: ['admin', 'nc-team', 'president', 'vice-president']
-            });
-        }
-        
-        console.log('✅ Admin-Berechtigung bestätigt');
-        
-    } catch (permError) {
-        console.error('❌ Berechtigungsprüfung fehlgeschlagen:', permError);
-        return res.status(401).json({ 
-            error: 'Berechtigungsprüfung fehlgeschlagen',
-            details: permError.message 
-        });
-    }
+    const { name, description, availableRanks } = req.body;
     
     if (!name) {
-        return res.status(400).json({ error: 'Template-Name ist erforderlich' });
-    }
-    
-    let questionsString = null;
-    if (questions) {
-        try {
-            const questionsObj = typeof questions === 'string' ? JSON.parse(questions) : questions;
-            questionsString = JSON.stringify(questionsObj);
-            console.log('📝 Admin-Update: Fragen verarbeitet:', questionsObj.length);
-        } catch (e) {
-            console.error('❌ Fehler beim Parsen der Admin-Fragen:', e);
-            return res.status(400).json({ error: 'Ungültiges Fragen-Format' });
-        }
+        return res.status(400).json({ error: 'Name ist erforderlich' });
     }
     
     let updateQuery = 'UPDATE gdocs_templates SET name = ?, description = ?, available_ranks = ?';
     let params = [name, description, availableRanks];
     
-    if (questionsString !== null) {
-        updateQuery += ', questions = ?';
-        params.push(questionsString);
-    }
-    
+    // Falls neue Datei hochgeladen
     if (req.file) {
         updateQuery += ', file_path = ?, original_filename = ?';
         params.push(req.file.path, req.file.originalname);
@@ -400,25 +319,12 @@ app.put('/api/update-gdocs-template/:id', upload.single('templateFile'), async (
     
     db.run(updateQuery, params, function(err) {
         if (err) {
-            console.error('❌ Datenbank-Fehler beim Admin-Template-Update:', err);
             return res.status(500).json({ error: 'Fehler beim Aktualisieren: ' + err.message });
         }
         
-        if (this.changes === 0) {
-            return res.status(404).json({ error: 'Template nicht gefunden' });
-        }
+        createLogEntry('TEMPLATE_UPDATED', 'admin', 'admin', `Template "${name}" aktualisiert`, null, req.ip);
         
-        console.log('✅ Admin-Template erfolgreich aktualisiert');
-        
-        const questionsCount = questionsString ? JSON.parse(questionsString).length : 'unverändert';
-        createLogEntry('TEMPLATE_UPDATED_BY_ADMIN', requestingUser, userPerms.rank, 
-                      `Template "${name}" aktualisiert (${questionsCount} Fragen) - ADMIN`, null, req.ip);
-        
-        res.json({ 
-            success: true, 
-            message: 'Template erfolgreich aktualisiert (Administrator)',
-            questionsCount: questionsCount
-        });
+        res.json({ success: true });
     });
 });
 
@@ -2242,82 +2148,7 @@ app.delete('/api/documents/:id', (req, res) => {
 });
 
 // G-Docs Template erstellen (GEÄNDERT: mit DOCX-Upload)
-app.post('/api/create-gdocs-template', upload.single('templateFile'), async (req, res) => {
-    console.log('🛡️ Template-Erstellung Anfrage');
-    
-    if (!req.file) {
-        return res.status(400).json({ error: 'Keine DOCX-Datei hochgeladen' });
-    }
-    
-    const { name, description, createdBy } = req.body;
-    let { availableRanks, questions } = req.body;
-    
-    if (!name || !createdBy) {
-        return res.status(400).json({ error: 'Name und Ersteller sind erforderlich' });
-    }
-    
-    try {
-        console.log('🔐 Prüfe Erstellungs-Berechtigungen für:', createdBy);
-        const userPerms = await getUserPermissions(createdBy);
-        
-        if (!userPerms.canEditTemplates) {
-            console.error('❌ Unberechtigter Template-Erstellungs-Versuch:', createdBy);
-            
-            createLogEntry('UNAUTHORIZED_TEMPLATE_CREATE_ATTEMPT', createdBy, userPerms.rank, 
-                          `Unbefugter Versuch Template "${name}" zu erstellen`, null, req.ip);
-            
-            return res.status(403).json({ 
-                error: 'Zugriff verweigert: Template-Erstellung nur für Administratoren',
-                userRank: userPerms.rank
-            });
-        }
-        
-        console.log('✅ Admin-Berechtigung für Template-Erstellung bestätigt');
-        
-    } catch (permError) {
-        console.error('❌ Fehler bei Erstellungs-Berechtigungsprüfung:', permError);
-        return res.status(401).json({ 
-            error: 'Berechtigungsprüfung fehlgeschlagen'
-        });
-    }
-    
-    if (typeof availableRanks === 'string') {
-        availableRanks = [availableRanks];
-    }
-    const ranksString = Array.isArray(availableRanks) ? availableRanks.join(',') : availableRanks;
-    
-    let questionsString = null;
-    if (questions) {
-        try {
-            const questionsObj = typeof questions === 'string' ? JSON.parse(questions) : questions;
-            questionsString = JSON.stringify(questionsObj);
-        } catch (e) {
-            questionsString = null;
-        }
-    }
-    
-    db.run(`INSERT INTO gdocs_templates (name, description, file_path, original_filename, available_ranks, questions, created_by) 
-            VALUES (?, ?, ?, ?, ?, ?, ?)`,
-            [name, description, req.file.path, req.file.originalname, ranksString, questionsString, createdBy],
-            function(err) {
-                if (err) {
-                    console.error('❌ Admin-Template-Upload Fehler:', err);
-                    return res.status(500).json({ error: 'Fehler beim Speichern der Vorlage' });
-                }
-                
-                console.log('✅ Admin-Template erfolgreich erstellt');
-                
-                const questionsCount = questionsString ? JSON.parse(questionsString).length : 0;
-                createLogEntry('TEMPLATE_CREATED_BY_ADMIN', createdBy, 'admin', 
-                              `DOCX-Vorlage "${name}" mit ${questionsCount} Fragen erstellt - ADMIN`, null, req.ip);
-                
-                res.json({ 
-                    success: true, 
-                    templateId: this.lastID,
-                    message: 'Template erfolgreich erstellt (Administrator)'
-                });
-            });
-});
+app.post('/api/create-gdocs-template', upload.single('templateFile'), (req, res) => {
     console.log('📁 Template-Upload gestartet');
     console.log('📁 Datei:', req.file);
     console.log('📋 Formulardaten:', req.body);
@@ -2602,64 +2433,8 @@ app.get('/api/template-responses/:templateId', (req, res) => {
 });
 
 // G-Docs Template löschen
-app.delete('/api/gdocs-templates/:id', async (req, res) => {
+app.delete('/api/gdocs-templates/:id', (req, res) => {
     const { id } = req.params;
-    const { adminUsername } = req.body;
-    
-    console.log('🛡️ Template-Löschung Anfrage für ID:', id);
-    
-    if (!adminUsername) {
-        return res.status(400).json({ error: 'Administrator-Identifikation erforderlich' });
-    }
-    
-    try {
-        const userPerms = await getUserPermissions(adminUsername);
-        
-        if (!userPerms.canEditTemplates) {
-            console.error('❌ Unberechtigter Template-Löschungs-Versuch:', adminUsername);
-            
-            createLogEntry('UNAUTHORIZED_TEMPLATE_DELETE_ATTEMPT', adminUsername, userPerms.rank, 
-                          `Unbefugter Versuch Template ${id} zu löschen`, null, req.ip);
-            
-            return res.status(403).json({ 
-                error: 'Zugriff verweigert: Template-Löschung nur für Administratoren'
-            });
-        }
-        
-    } catch (permError) {
-        return res.status(401).json({ error: 'Berechtigungsprüfung fehlgeschlagen' });
-    }
-    
-    db.get('SELECT name FROM gdocs_templates WHERE id = ?', [id], (err, template) => {
-        if (err || !template) {
-            return res.status(404).json({ error: 'Vorlage nicht gefunden' });
-        }
-        
-        const templateName = template.name;
-        
-        db.run('DELETE FROM template_responses WHERE template_id = ?', [id], (err) => {
-            if (err) {
-                console.error('❌ Fehler beim Löschen der Template-Antworten:', err);
-            }
-            
-            db.run('DELETE FROM gdocs_templates WHERE id = ?', [id], (err) => {
-                if (err) {
-                    return res.status(500).json({ error: 'Datenbankfehler beim Löschen' });
-                }
-                
-                console.log('✅ Admin-Template erfolgreich gelöscht:', templateName);
-                
-                createLogEntry('GDOCS_TEMPLATE_DELETED_BY_ADMIN', adminUsername, userPerms.rank, 
-                              `Template "${templateName}" gelöscht - ADMIN`, null, req.ip);
-                
-                res.json({ 
-                    success: true,
-                    message: 'Template erfolgreich gelöscht (Administrator)'
-                });
-            });
-        });
-    });
-});
     
     db.get('SELECT name FROM gdocs_templates WHERE id = ?', [id], (err, template) => {
         if (err || !template) {
@@ -2787,10 +2562,6 @@ process.on('SIGINT', () => {
     });
 
 });
-
-
-
-
 
 
 
