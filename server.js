@@ -232,7 +232,7 @@ function getRankDisplay(rank) {
 }
 // ===== ADMIN-BERECHTIGUNGEN SERVER =====
 
-function hasFullAccessServer(rank) {
+async function hasFullAccessServer(rank) {
     const fullAccessRanks = ['nc-team', 'president', 'vice-president', 'admin'];
     return fullAccessRanks.includes(rank);
 }
@@ -2819,6 +2819,7 @@ process.on('SIGINT', () => {
     });
 
 });
+
 
 
 
