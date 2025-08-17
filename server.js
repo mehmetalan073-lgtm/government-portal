@@ -12,6 +12,11 @@ const Docxtemplater = require('docxtemplater');
 const PizZip = require('pizzip');
 const mammoth = require('mammoth');
 
+console.log('🚀 Starte Regierungspanel...');
+console.log('📦 Node Version:', process.version);
+console.log('🚂 Railway Environment:', process.env.RAILWAY_ENVIRONMENT || 'NEIN');
+console.log('📍 Port:', process.env.PORT || 3000);
+
 // Multer-Konfiguration für DOCX-Upload
 const storage = multer.diskStorage({
     destination: function (req, file, cb) {
@@ -83,9 +88,10 @@ app.get('/', (req, res) => {
 });
 
 // SQLite Datenbank initialisieren
-const db = new sqlite3.Database('government_portal.db', (err) => {
+const db = new sqlite3.Database('./government_portal.db', (err) => {
     if (err) {
         console.error('❌ Datenbankfehler:', err);
+        process.exit(1);
     } else {
         console.log('✅ Datenbank verbunden');
     }
@@ -1754,23 +1760,15 @@ app.use((err, req, res, next) => {
 });
 
 // ===== SERVER STARTEN =====
-
-app.listen(PORT, '0.0.0.0', () => {  // <-- Railway braucht '0.0.0.0'
-    console.log(`🏛️ Regierungspanel v24-KORRIGIERT läuft auf http://localhost:${PORT}`);
-    console.log(`📊 SQLite Datenbank: government_portal.db`);
-    console.log(`🔐 Admin Login: admin / memo`);
-    console.log(`📈 Rang-System: 8 verschiedene Ränge`);
-    console.log(`✅ Username-Änderungen aktiviert`);
-    console.log(`📜 System-Log aktiviert`);
-    console.log(`📝 G-Docs Templates aktiviert (weniger restriktiv)`);
-    console.log(`📋 DOCX-Generierung und Vorschau aktiviert`);
-    console.log(`🔄 CORS korrigiert für Frontend-Kompatibilität`);
-    console.log(`🗂️ Static File Serving korrigiert`);
-    console.log(`🧪 Test-Endpoint: GET /api/test-db`);
-    console.log(`📄 Dokument-Management vollständig funktional`);
-    console.log(`✅ Frontend-Backend Kompatibilität verbessert`);
+const server = app.listen(PORT, '0.0.0.0', () => {
+    console.log(`🚂 Railway Server läuft auf Port ${PORT}`);
+    console.log(`✅ Erfolgreich gestartet!`);
 });
 
+server.on('error', (err) => {
+    console.error('🚨 Server Error:', err);
+    process.exit(1);
+});
 // Graceful shutdown
 process.on('SIGINT', () => {
     console.log('\n🛑 Server wird heruntergefahren...');
@@ -1782,6 +1780,7 @@ process.on('SIGINT', () => {
         process.exit(0);
     });
 });
+
 
 
 
