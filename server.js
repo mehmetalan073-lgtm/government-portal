@@ -236,35 +236,341 @@ function hasFullAccessServer(rank) {
     const fullAccessRanks = ['nc-team', 'president', 'vice-president', 'admin'];
     return fullAccessRanks.includes(rank);
 }
-
+// KORRIGIERTE getUserPermissions Funktion (nur eine Version!)
 async function getUserPermissions(username) {
-    try {
-        const user = await new Promise((resolve, reject) => {
-            db.get('SELECT username, rank, full_name FROM users WHERE username = ? AND status = "approved"', 
-                   [username], (err, user) => {
-                if (err) reject(err);
-                else resolve(user);
-            });
+    return new Promise((resolve, reject) => {
+        db.get('SELECT username, rank, full_name FROM users WHERE username = ? AND status = "approved"', 
+               [username], (err, user) => {
+            if (err) {
+                reject(err);
+            } else if (!user) {
+                reject(new Error('Benutzer nicht gefunden oder nicht genehmigt'));
+            } else {
+                const hasFullAccess = hasFullAccessServer(user.rank || 'user');
+                resolve({
+                    username: user.username,
+                    rank: user.rank || 'user',
+                    fullName: user.full_name,
+                    hasFullAccess: hasFullAccess,
+                    canEditTemplates: hasFullAccess
+                });
+            }
         });
-        
-        if (!user) {
-            throw new Error('Benutzer nicht gefunden oder nicht genehmigt');
-        }
-        
-        const hasFullAccess = await hasFullAccessServer(user.rank || 'user');
-        
-        return {
-            username: user.username,
-            rank: user.rank || 'user',
-            fullName: user.full_name,
-            hasFullAccess: hasFullAccess,
-            canEditTemplates: hasFullAccess
-        };
-    } catch (error) {
-        throw error;
-    }
+    });
 }
 
+// KORRIGIERTE File Counters Tabelle (mit allen schließenden Klammern)
+db.run(`CREATE TABLE IF NOT EXISTS file_counters (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    prefix TEXT NOT NULL UNIQUE,
+    current_number INTEGER DEFAULT 0,
+    created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+    updated_at DATETIME DEFAULT CURRENT_TIMESTAMP
+)`, (err) => {
+    if (!err) {
+        console.log('✅ File Counters Tabelle erstellt');
+        
+        // Nur B-Counter initialisieren
+        db.run(`INSERT OR IGNORE INTO file_counters (prefix, current_number) VALUES ('B', 0)`, 
+               (err) => {
+            if (!err) {
+                console.log('✅ B-Counter (Bewertung) initialisiert');
+            }
+        });
+    }
+});
+
+// KORRIGIERTE Tabellen-Erstellung im db.serialize() Block
+db.serialize(() => {
+    // Users Tabelle mit Rang-System
+    db.run(`CREATE TABLE IF NOT EXISTS users (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        username TEXT UNIQUE NOT NULL,
+        password_hash TEXT NOT NULL,
+        full_name TEXT NOT NULL,
+        email TEXT NOT NULL,
+        rank TEXT DEFAULT 'user',
+        role TEXT DEFAULT 'user',
+        status TEXT DEFAULT 'approved',
+        dark_mode INTEGER DEFAULT 0,
+        created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+        approved_by TEXT,
+        approved_at DATETIME
+    )`, (err) => {
+        if (err) {
+            console.log('Users Tabelle existiert bereits');
+        }
+        
+        // Migration: Füge fehlende Spalten hinzu
+        db.all("PRAGMA table_info(users)", (err, columns) => {
+            if (!err && columns) {
+                const columnNames = columns.map(col => col.name);
+                
+                // Füge rank Spalte hinzu falls sie fehlt
+                if (!columnNames.includes('rank')) {
+                    db.run("ALTER TABLE users ADD COLUMN rank TEXT DEFAULT 'user'", (err) => {
+                        if (!err) {
+                            console.log('✅ rank Spalte erfolgreich hinzugefügt');
+                            db.run("UPDATE users SET rank = 'admin' WHERE username = 'admin'");
+                        }
+                    });
+                }
+                
+                // Füge dark_mode Spalte hinzu falls sie fehlt
+                if (!columnNames.includes('dark_mode')) {
+                    db.run("ALTER TABLE users ADD COLUMN dark_mode INTEGER DEFAULT 0", (err) => {
+                        if (!err) {
+                            console.log('✅ dark_mode Spalte erfolgreich hinzugefügt');
+                        }
+                    });
+                }
+            }
+        });
+    });
+
+    // Registrations Tabelle
+    db.run(`CREATE TABLE IF NOT EXISTS registrations (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        username TEXT UNIQUE NOT NULL,
+        password_hash TEXT NOT NULL,
+        full_name TEXT NOT NULL,
+        email TEXT NOT NULL,
+        reason TEXT NOT NULL,
+        status TEXT DEFAULT 'pending',
+        created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+        approved_by TEXT,
+        approved_at DATETIME
+    )`);
+
+    // Documents Tabelle (erweitert mit template_response_id)
+    db.run(`CREATE TABLE IF NOT EXISTS documents (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        full_name TEXT NOT NULL,
+        birth_date TEXT,
+        address TEXT,
+        phone TEXT,
+        email TEXT,
+        purpose TEXT,
+        application_date TEXT,
+        additional_info TEXT,
+        created_by TEXT NOT NULL,
+        template_response_id INTEGER,
+        document_type TEXT DEFAULT 'manual',
+        created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+        FOREIGN KEY (created_by) REFERENCES users(username),
+        FOREIGN KEY (template_response_id) REFERENCES template_responses(id)
+    )`, (err) => {
+        if (err) {
+            console.error('❌ Fehler beim Erstellen der Documents Tabelle:', err);
+        } else {
+            console.log('✅ Documents Tabelle erstellt/verifiziert');
+            
+            // Migration: Füge template_response_id hinzu falls fehlend
+            db.all("PRAGMA table_info(documents)", (err, columns) => {
+                if (!err && columns) {
+                    const columnNames = columns.map(col => col.name);
+                    console.log('📊 Documents Tabellen-Struktur:', columnNames);
+                    
+                    if (!columnNames.includes('template_response_id')) {
+                        db.run("ALTER TABLE documents ADD COLUMN template_response_id INTEGER", (err) => {
+                            if (!err) {
+                                console.log('✅ template_response_id Spalte hinzugefügt');
+                            }
+                        });
+                    }
+                    
+                    if (!columnNames.includes('document_type')) {
+                        db.run("ALTER TABLE documents ADD COLUMN document_type TEXT DEFAULT 'manual'", (err) => {
+                            if (!err) {
+                                console.log('✅ document_type Spalte hinzugefügt');
+                            }
+                        });
+                    }
+                    
+                    // Füge generated_docx_path Spalte hinzu falls fehlend
+                    if (!columnNames.includes('generated_docx_path')) {
+                        db.run("ALTER TABLE documents ADD COLUMN generated_docx_path TEXT", (err) => {
+                            if (!err) {
+                                console.log('✅ generated_docx_path Spalte hinzugefügt');
+                            }
+                        });
+                    }
+                    
+                    // Füge file_number Spalte hinzu falls fehlend
+                    if (!columnNames.includes('file_number')) {
+                        db.run("ALTER TABLE documents ADD COLUMN file_number TEXT", (err) => {
+                            if (!err) {
+                                console.log('✅ file_number Spalte hinzugefügt');
+                            }
+                        });
+                    }
+                    
+                    // Füge generated_filename Spalte hinzu falls fehlend
+                    if (!columnNames.includes('generated_filename')) {
+                        db.run("ALTER TABLE documents ADD COLUMN generated_filename TEXT", (err) => {
+                            if (!err) {
+                                console.log('✅ generated_filename Spalte hinzugefügt');
+                            }
+                        });
+                    }
+                    
+                    // Füge preview_html Spalte hinzu falls fehlend
+                    if (!columnNames.includes('preview_html')) {
+                        db.run("ALTER TABLE documents ADD COLUMN preview_html TEXT", (err) => {
+                            if (!err) {
+                                console.log('✅ preview_html Spalte hinzugefügt');
+                            }
+                        });
+                    }
+                }
+            });
+        }
+    });
+
+    // File Counter Tabelle für automatische Nummern
+    db.run(`CREATE TABLE IF NOT EXISTS file_counters (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        prefix TEXT NOT NULL UNIQUE,
+        current_number INTEGER DEFAULT 0,
+        created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+        updated_at DATETIME DEFAULT CURRENT_TIMESTAMP
+    )`, (err) => {
+        if (!err) {
+            console.log('✅ File Counters Tabelle erstellt');
+            
+            // Nur B-Counter initialisieren
+            db.run(`INSERT OR IGNORE INTO file_counters (prefix, current_number) VALUES ('B', 0)`, 
+                   (err) => {
+                if (!err) {
+                    console.log('✅ B-Counter (Bewertung) initialisiert');
+                }
+            });
+        }
+    });
+
+    // Username Change Requests Tabelle
+    db.run(`CREATE TABLE IF NOT EXISTS username_change_requests (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        current_username TEXT NOT NULL,
+        new_username TEXT NOT NULL,
+        reason TEXT NOT NULL,
+        status TEXT DEFAULT 'pending',
+        created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+        approved_by TEXT,
+        approved_at DATETIME
+    )`, (err) => {
+        if (!err) {
+            console.log('✅ Username Change Requests Tabelle erstellt');
+        }
+    });
+
+    // System Log Tabelle
+    db.run(`CREATE TABLE IF NOT EXISTS system_log (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        action TEXT NOT NULL,
+        performed_by TEXT NOT NULL,
+        user_rank TEXT,
+        details TEXT,
+        target_user TEXT,
+        ip_address TEXT,
+        session_id TEXT,
+        created_at DATETIME DEFAULT CURRENT_TIMESTAMP
+    )`, (err) => {
+        if (!err) {
+            console.log('✅ System Log Tabelle erstellt');
+        }
+    });
+
+    // G-Docs Templates Tabelle
+    db.run(`CREATE TABLE IF NOT EXISTS gdocs_templates (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        name TEXT NOT NULL,
+        description TEXT,
+        file_path TEXT NOT NULL,
+        original_filename TEXT,
+        available_ranks TEXT NOT NULL,
+        questions TEXT,
+        created_by TEXT NOT NULL,
+        created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+        FOREIGN KEY (created_by) REFERENCES users(username)
+    )`, (err) => {
+        if (err) {
+            console.log('📋 gdocs_templates Tabelle existiert bereits');
+        } else {
+            console.log('✅ G-Docs Templates Tabelle erstellt');
+        }
+        
+        // Migration: Füge fehlende Spalten hinzu
+        db.all("PRAGMA table_info(gdocs_templates)", (err, columns) => {
+            if (!err && columns) {
+                const columnNames = columns.map(col => col.name);
+                
+                if (!columnNames.includes('questions')) {
+                    db.run("ALTER TABLE gdocs_templates ADD COLUMN questions TEXT", (err) => {
+                        if (!err) {
+                            console.log('✅ questions Spalte zu gdocs_templates hinzugefügt');
+                        }
+                    });
+                }
+                
+                if (!columnNames.includes('file_path')) {
+                    db.run("ALTER TABLE gdocs_templates ADD COLUMN file_path TEXT", (err) => {
+                        if (!err) {
+                            console.log('✅ file_path Spalte zu gdocs_templates hinzugefügt');
+                        }
+                    });
+                }
+                
+                if (!columnNames.includes('original_filename')) {
+                    db.run("ALTER TABLE gdocs_templates ADD COLUMN original_filename TEXT", (err) => {
+                        if (!err) {
+                            console.log('✅ original_filename Spalte zu gdocs_templates hinzugefügt');
+                        }
+                    });
+                }
+            }
+        });
+    });
+
+    // Template Responses Tabelle (für gespeicherte Antworten)
+    db.run(`CREATE TABLE IF NOT EXISTS template_responses (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        template_id INTEGER NOT NULL,
+        answers TEXT NOT NULL,
+        submitted_by TEXT NOT NULL,
+        created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+        FOREIGN KEY (template_id) REFERENCES gdocs_templates(id),
+        FOREIGN KEY (submitted_by) REFERENCES users(username)
+    )`, (err) => {
+        if (!err) {
+            console.log('✅ Template Responses Tabelle erstellt');
+        }
+    });
+
+    // Admin-User erstellen oder aktualisieren
+    const adminPassword = bcrypt.hashSync('memo', 10);
+    db.get("SELECT * FROM users WHERE username = 'admin'", (err, user) => {
+        if (!user) {
+            // Admin existiert nicht, erstelle ihn
+            db.run(`INSERT INTO users (username, password_hash, full_name, email, rank, role, status) 
+                    VALUES ('admin', ?, 'Systemadministrator', 'admin@system.gov.de', 'admin', 'admin', 'approved')`, 
+                    [adminPassword], (err) => {
+                        if (!err) {
+                            console.log('✅ Admin-User erfolgreich erstellt');
+                        }
+                    });
+        } else {
+            // Admin existiert, stelle sicher dass rank gesetzt ist
+            if (!user.rank || user.rank !== 'admin') {
+                db.run("UPDATE users SET rank = 'admin' WHERE username = 'admin'", (err) => {
+                    if (!err) {
+                        console.log('✅ Admin-User Rang aktualisiert');
+                    }
+                });
+            }
+        }
+    });
+}); // <- WICHTIG: Schließende Klammer für db.serialize()
 // Funktion: DOCX zu HTML für Vorschau konvertieren
 async function convertDocxToHtml(docxPath) {
     try {
@@ -2671,6 +2977,7 @@ process.on('SIGINT', () => {
     });
 
 });
+
 
 
 
