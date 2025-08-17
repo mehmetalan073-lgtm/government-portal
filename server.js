@@ -115,27 +115,27 @@ async function generateDocxFromTemplate(templatePath, answers, outputFilename, s
         console.log('👤 Erstellt von:', submittedBy);
         
         // Template-Datei lesen
-         templateContent = fs.readFileSync(templatePath, 'binary');
-         zip = new PizZip(templateContent);
+         const templateContent = fs.readFileSync(templatePath, 'binary');
+         const zip = new PizZip(templateContent);
         
         // Docxtemplater erstellen
-         doc = new Docxtemplater(zip, {
+         const doc = new Docxtemplater(zip, {
             paragraphLoop: true,
             linebreaks: true,
         });
         
         // Platzhalter durch Antworten ersetzen
-         templateData = {};
+         const templateData = {};
         
         // Konvertiere field-X zu readable names falls möglich
         Object.entries(answers).forEach(([key, value]) => {
-             cleanKey = key.replace('field-', '');
+             const cleanKey = key.replace('field-', '');
             templateData[cleanKey] = Array.isArray(value) ? value.join(', ') : value;
             templateData[key] = Array.isArray(value) ? value.join(', ') : value;
         });
         
         // Lade Benutzerdaten aus der Datenbank
-         userData = await new Promise((resolve, reject) => {
+         const userData = await new Promise((resolve, reject) => {
             db.get('SELECT * FROM users WHERE username = ?', [submittedBy], (err, user) => {
                 if (err) reject(err);
                 else resolve(user || {});
@@ -338,6 +338,89 @@ app.put('/api/update-gdocs-template/:id', upload.single('templateFile'), async (
             error: 'Benutzer-Identifikation erforderlich für Template-Bearbeitung'
         });
     }
+    
+    try {
+        console.log('🔍 Prüfe Berechtigungen für:', requestingUser);
+        const userPerms = await getUserPermissions(requestingUser);
+        
+        if (!userPerms.canEditTemplates) {
+            console.error('❌ Unberechtigter Template-Update Versuch von:', requestingUser);
+            
+            createLogEntry('UNAUTHORIZED_TEMPLATE_EDIT_ATTEMPT', requestingUser, userPerms.rank, 
+                          `Unbefugter Versuch Template ${id} zu bearbeiten`, null, req.ip);
+            
+            return res.status(403).json({ 
+                error: 'Zugriff verweigert: Template-Bearbeitung nur für Administratoren',
+                userRank: userPerms.rank,
+                requiredRanks: ['admin', 'nc-team', 'president', 'vice-president']
+            });
+        }
+        
+        console.log('✅ Admin-Berechtigung bestätigt');
+        
+    } catch (permError) {
+        console.error('❌ Berechtigungsprüfung fehlgeschlagen:', permError);
+        return res.status(401).json({ 
+            error: 'Berechtigungsprüfung fehlgeschlagen',
+            details: permError.message 
+        });
+    }
+    
+    if (!name) {
+        return res.status(400).json({ error: 'Template-Name ist erforderlich' });
+    }
+    
+    let questionsString = null;
+    if (questions) {
+        try {
+            const questionsObj = typeof questions === 'string' ? JSON.parse(questions) : questions;
+            questionsString = JSON.stringify(questionsObj);
+            console.log('📝 Admin-Update: Fragen verarbeitet:', questionsObj.length);
+        } catch (e) {
+            console.error('❌ Fehler beim Parsen der Admin-Fragen:', e);
+            return res.status(400).json({ error: 'Ungültiges Fragen-Format' });
+        }
+    }
+    
+    let updateQuery = 'UPDATE gdocs_templates SET name = ?, description = ?, available_ranks = ?';
+    let params = [name, description, availableRanks];
+    
+    if (questionsString !== null) {
+        updateQuery += ', questions = ?';
+        params.push(questionsString);
+    }
+    
+    if (req.file) {
+        updateQuery += ', file_path = ?, original_filename = ?';
+        params.push(req.file.path, req.file.originalname);
+    }
+    
+    updateQuery += ' WHERE id = ?';
+    params.push(id);
+    
+    db.run(updateQuery, params, function(err) {
+        if (err) {
+            console.error('❌ Datenbank-Fehler beim Admin-Template-Update:', err);
+            return res.status(500).json({ error: 'Fehler beim Aktualisieren: ' + err.message });
+        }
+        
+        if (this.changes === 0) {
+            return res.status(404).json({ error: 'Template nicht gefunden' });
+        }
+        
+        console.log('✅ Admin-Template erfolgreich aktualisiert');
+        
+        const questionsCount = questionsString ? JSON.parse(questionsString).length : 'unverändert';
+        createLogEntry('TEMPLATE_UPDATED_BY_ADMIN', requestingUser, userPerms.rank, 
+                      `Template "${name}" aktualisiert (${questionsCount} Fragen) - ADMIN`, null, req.ip);
+        
+        res.json({ 
+            success: true, 
+            message: 'Template erfolgreich aktualisiert (Administrator)',
+            questionsCount: questionsCount
+        });
+    });
+});
     
     try {
         console.log('🔐 Prüfe Berechtigungen für:', requestingUser);
@@ -1784,7 +1867,7 @@ db.run(`CREATE TABLE IF NOT EXISTS gdocs_templates (
             }
         }
     });
-    
+    });
 // API Endpoints
 
 // Login
@@ -2318,57 +2401,6 @@ app.post('/api/create-gdocs-template', upload.single('templateFile'), async (req
                 });
             });
 });
-    console.log('📁 Template-Upload gestartet');
-    console.log('📁 Datei:', req.file);
-    console.log('📋 Formulardaten:', req.body);
-    
-    if (!req.file) {
-        return res.status(400).json({ error: 'Keine DOCX-Datei hochgeladen' });
-    }
-    
-    const { name, description, createdBy } = req.body;
-    let { availableRanks, questions } = req.body;
-    
-    if (!name || !createdBy) {
-        return res.status(400).json({ error: 'Name und Ersteller sind erforderlich' });
-    }
-    
-    // availableRanks kann als Array oder einzelne Werte kommen
-    if (typeof availableRanks === 'string') {
-        availableRanks = [availableRanks];
-    }
-    const ranksString = Array.isArray(availableRanks) ? availableRanks.join(',') : availableRanks;
-    
-    // questions als JSON parsen falls als String übertragen
-    let questionsString = null;
-    if (questions) {
-        try {
-            const questionsObj = typeof questions === 'string' ? JSON.parse(questions) : questions;
-            questionsString = JSON.stringify(questionsObj);
-        } catch (e) {
-            questionsString = null;
-        }
-    }
-    
-    db.run(`INSERT INTO gdocs_templates (name, description, file_path, original_filename, available_ranks, questions, created_by) 
-            VALUES (?, ?, ?, ?, ?, ?, ?)`,
-            [name, description, req.file.path, req.file.originalname, ranksString, questionsString, createdBy],
-            function(err) {
-                if (err) {
-                    console.error('Template-Upload Fehler:', err);
-                    return res.status(500).json({ error: 'Fehler beim Speichern der Vorlage' });
-                }
-                
-                console.log('✅ Template erfolgreich hochgeladen:', req.file.originalname);
-                
-                // Log-Eintrag
-                const questionsCount = questionsString ? JSON.parse(questionsString).length : 0;
-                createLogEntry('TEMPLATE_CREATED', createdBy, 'admin', `DOCX-Vorlage "${name}" mit ${questionsCount} Fragen hochgeladen`, null, req.ip);
-                
-                res.json({ success: true, templateId: this.lastID });
-            });
-});
-
 // DOCX-Datei herunterladen
 app.get('/api/download-template/:id', (req, res) => {
     const { id } = req.params;
@@ -2787,6 +2819,7 @@ process.on('SIGINT', () => {
     });
 
 });
+
 
 
 
