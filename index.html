@@ -671,14 +671,32 @@
     <div id="loginError" class="error"></div>
     <div class="db-info">📊 <strong>Zugriff nur für Mitarbeiter des White House</strong><br>Alle Daten werden permanent gespeichert</div>
 </div>
-
-<!-- Register Screen -->
-<div id="registerScreen" class="screen">
+            <div id="registerScreen" class="screen">
     <div class="header">
         <div class="logo">📋</div>
         <h1>Zugangsantrag</h1>
         <div class="subtitle">Antrag auf Systemzugang</div>
     </div>
+          <div id="userDashboard" class="screen">
+    <div class="header">
+        <div class="logo">👤</div>
+        <h1>Benutzer-Terminal</h1>
+        <div class="subtitle">Authentifiziert über SQL-Datenbank</div>
+    </div>      
+              <div id="settingsScreen" class="screen">
+    <div class="header">
+        <div class="logo">⚙️</div>
+        <h1>Systemeinstellungen</h1>
+        <div class="subtitle">Personalisierung und Konfiguration</div>
+    </div>
+                  <div id="adminDashboard" class="screen">
+    <div class="header">
+        <div class="logo">🛡️</div>
+        <h1>Administrationsbereich</h1>
+        <div class="subtitle">Datenbankgestützte Benutzerverwaltung</div>
+    </div>
+
+<!-- Register Screen -->
     <div class="system-info">
         <strong>Wichtiger Hinweis:</strong><br>
         Ihr Antrag wird in der SQL-Datenbank gespeichert und von einem Administrator geprüft.
@@ -714,13 +732,6 @@
 </div>
 
 <!-- User Dashboard -->
-<div id="userDashboard" class="screen">
-    <div class="header">
-        <div class="logo">👤</div>
-        <h1>Benutzer-Terminal</h1>
-        <div class="subtitle">Authentifiziert über SQL-Datenbank</div>
-    </div>
-    
     <div class="content-area">
         <div class="welcome-message">✅ Willkommen im sicheren Behördensystem!</div>
         
@@ -750,13 +761,6 @@
 </div>
 
 <!-- Settings Screen -->
-<div id="settingsScreen" class="screen">
-    <div class="header">
-        <div class="logo">⚙️</div>
-        <h1>Systemeinstellungen</h1>
-        <div class="subtitle">Personalisierung und Konfiguration</div>
-    </div>
-    
     <div class="content-area">
         <div class="welcome-message">🔧 Passen Sie das System an Ihre Bedürfnisse an</div>
         
@@ -1289,13 +1293,6 @@ body.dark .db-info {
 <!-- ===== TEIL 3: USER INTERFACE & NAVIGATION ===== -->
 
 <!-- Admin Dashboard -->
-<div id="adminDashboard" class="screen">
-    <div class="header">
-        <div class="logo">🛡️</div>
-        <h1>Administrationsbereich</h1>
-        <div class="subtitle">Datenbankgestützte Benutzerverwaltung</div>
-    </div>
-    
     <div class="content-area">
         <div class="welcome-message">🛡️ Administrator-Zugang bestätigt</div>
         
@@ -4086,4 +4083,5 @@ body.dark .question-number {
 </div>
 </body>
 </html>
+
 
