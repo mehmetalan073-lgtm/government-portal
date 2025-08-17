@@ -1169,6 +1169,24 @@ function showSettings() {
     showScreen('settingsScreen');
     toggleUserDropdown();
 }
+    // Fügen Sie diese Funktion zu Ihrem JavaScript hinzu:
+function showScreen(screenId) {
+    console.log('🔄 Wechsle zu Screen:', screenId);
+    
+    // Alle Screens verstecken
+    document.querySelectorAll('.screen').forEach(screen => {
+        screen.classList.remove('active');
+    });
+    
+    // Ziel-Screen anzeigen
+    const targetScreen = document.getElementById(screenId);
+    if (targetScreen) {
+        targetScreen.classList.add('active');
+        console.log('✅ Screen aktiviert:', screenId);
+    } else {
+        console.error('❌ Screen nicht gefunden:', screenId);
+    }
+}
 
 function logout() {
     if (confirm('Wirklich abmelden?')) {
@@ -4084,6 +4102,7 @@ body.dark .question-number {
 </div>
 </body>
 </html>
+
 
 
 
