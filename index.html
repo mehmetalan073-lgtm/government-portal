@@ -4324,10 +4324,135 @@ function updateGdocsTemplatesList(templates) {
         `;
     }
 }
+        /* ===== ADMIN TEMPLATE-EDITOR CSS ===== */
+
+#editTemplateModal .documents-modal-content {
+    max-width: 1000px !important;
+    max-height: 90vh !important;
+    width: 95% !important;
+}
+
+#editTemplateModal .documents-modal-body {
+    max-height: calc(90vh - 120px) !important;
+    overflow-y: auto !important;
+}
+
+.questions-container {
+    border: 1px solid #e0e0e0;
+    border-radius: 6px;
+    padding: 15px;
+    margin: 10px 0;
+    background: #f8f9fa;
+    max-height: 400px;
+    overflow-y: auto;
+}
+
+.question-item {
+    background: white;
+    border: 1px solid #dee2e6;
+    border-radius: 6px;
+    padding: 15px;
+    margin: 10px 0;
+    position: relative;
+    transition: all 0.3s ease;
+}
+
+.question-item:hover {
+    box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+    transform: translateY(-1px);
+}
+
+.question-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 10px;
+    padding-bottom: 8px;
+    border-bottom: 1px solid #f0f0f0;
+}
+
+.question-number {
+    font-weight: 600;
+    color: #6a4c93;
+    font-size: 14px;
+}
+
+.question-remove {
+    background: #dc3545;
+    color: white;
+    border: none;
+    border-radius: 4px;
+    padding: 4px 8px;
+    font-size: 12px;
+    cursor: pointer;
+    transition: all 0.3s ease;
+}
+
+.question-remove:hover {
+    background: #c82333;
+    transform: scale(1.05);
+}
+
+.question-fields {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 10px;
+    margin-top: 10px;
+}
+
+.question-fields .form-group {
+    margin: 0;
+}
+
+.question-fields .form-group.full {
+    grid-column: 1 / -1;
+}
+
+@media (max-width: 768px) {
+    #editTemplateModal .documents-modal-content {
+        width: 98% !important;
+        margin: 10px !important;
+        max-height: 95vh !important;
+    }
+    
+    .question-fields {
+        grid-template-columns: 1fr !important;
+    }
+    
+    .question-header {
+        flex-direction: column;
+        align-items: flex-start;
+        gap: 8px;
+    }
+    
+    .questions-container {
+        max-height: 300px;
+    }
+}
+
+body.dark .questions-container {
+    background: #3a3a3a;
+    border-color: #4a4a4a;
+}
+
+body.dark .question-item {
+    background: #2d2d2d;
+    border-color: #4a4a4a;
+    color: #e0e0e0;
+}
+
+body.dark .question-number {
+    color: #c0c0ff;
+}
+
+body.dark .question-header {
+    border-bottom-color: #4a4a4a;
+}
     </script>
 </body>
 
 </html>
+
 
 
 
