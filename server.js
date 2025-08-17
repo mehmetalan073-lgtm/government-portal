@@ -325,18 +325,71 @@ async function viewDocumentDetails(docId) {
     }
 }
 // Template bearbeiten
-app.put('/api/update-gdocs-template/:id', upload.single('templateFile'), (req, res) => {
+app.put('/api/update-gdocs-template/:id', upload.single('templateFile'), async (req, res) => {
     const { id } = req.params;
-    const { name, description, availableRanks } = req.body;
+    console.log('🛡️ Template-Update Anfrage für ID:', id);
+    
+    const { name, description, availableRanks, questions, adminUsername } = req.body;
+    
+    let requestingUser = adminUsername || req.body.createdBy || req.body.updatedBy;
+    
+    if (!requestingUser) {
+        return res.status(400).json({ 
+            error: 'Benutzer-Identifikation erforderlich für Template-Bearbeitung'
+        });
+    }
+    
+    try {
+        console.log('🔐 Prüfe Berechtigungen für:', requestingUser);
+        const userPerms = await getUserPermissions(requestingUser);
+        
+        if (!userPerms.canEditTemplates) {
+            console.error('❌ Unberechtigter Template-Update Versuch von:', requestingUser);
+            
+            createLogEntry('UNAUTHORIZED_TEMPLATE_EDIT_ATTEMPT', requestingUser, userPerms.rank, 
+                          `Unbefugter Versuch Template ${id} zu bearbeiten`, null, req.ip);
+            
+            return res.status(403).json({ 
+                error: 'Zugriff verweigert: Template-Bearbeitung nur für Administratoren',
+                userRank: userPerms.rank,
+                requiredRanks: ['admin', 'nc-team', 'president', 'vice-president']
+            });
+        }
+        
+        console.log('✅ Admin-Berechtigung bestätigt');
+        
+    } catch (permError) {
+        console.error('❌ Berechtigungsprüfung fehlgeschlagen:', permError);
+        return res.status(401).json({ 
+            error: 'Berechtigungsprüfung fehlgeschlagen',
+            details: permError.message 
+        });
+    }
     
     if (!name) {
-        return res.status(400).json({ error: 'Name ist erforderlich' });
+        return res.status(400).json({ error: 'Template-Name ist erforderlich' });
+    }
+    
+    let questionsString = null;
+    if (questions) {
+        try {
+            const questionsObj = typeof questions === 'string' ? JSON.parse(questions) : questions;
+            questionsString = JSON.stringify(questionsObj);
+            console.log('📝 Admin-Update: Fragen verarbeitet:', questionsObj.length);
+        } catch (e) {
+            console.error('❌ Fehler beim Parsen der Admin-Fragen:', e);
+            return res.status(400).json({ error: 'Ungültiges Fragen-Format' });
+        }
     }
     
     let updateQuery = 'UPDATE gdocs_templates SET name = ?, description = ?, available_ranks = ?';
     let params = [name, description, availableRanks];
     
-    // Falls neue Datei hochgeladen
+    if (questionsString !== null) {
+        updateQuery += ', questions = ?';
+        params.push(questionsString);
+    }
+    
     if (req.file) {
         updateQuery += ', file_path = ?, original_filename = ?';
         params.push(req.file.path, req.file.originalname);
@@ -347,12 +400,25 @@ app.put('/api/update-gdocs-template/:id', upload.single('templateFile'), (req, r
     
     db.run(updateQuery, params, function(err) {
         if (err) {
+            console.error('❌ Datenbank-Fehler beim Admin-Template-Update:', err);
             return res.status(500).json({ error: 'Fehler beim Aktualisieren: ' + err.message });
         }
         
-        createLogEntry('TEMPLATE_UPDATED', 'admin', 'admin', `Template "${name}" aktualisiert`, null, req.ip);
+        if (this.changes === 0) {
+            return res.status(404).json({ error: 'Template nicht gefunden' });
+        }
         
-        res.json({ success: true });
+        console.log('✅ Admin-Template erfolgreich aktualisiert');
+        
+        const questionsCount = questionsString ? JSON.parse(questionsString).length : 'unverändert';
+        createLogEntry('TEMPLATE_UPDATED_BY_ADMIN', requestingUser, userPerms.rank, 
+                      `Template "${name}" aktualisiert (${questionsCount} Fragen) - ADMIN`, null, req.ip);
+        
+        res.json({ 
+            success: true, 
+            message: 'Template erfolgreich aktualisiert (Administrator)',
+            questionsCount: questionsCount
+        });
     });
 });
 
@@ -2590,6 +2656,7 @@ process.on('SIGINT', () => {
     });
 
 });
+
 
 
 
