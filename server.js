@@ -549,7 +549,6 @@ db.serialize(() => {
             }
         }
     });
-}); // <- WICHTIG: Schließende Klammer für db.serialize()
 // Funktion: DOCX zu HTML für Vorschau konvertieren
 async function convertDocxToHtml(docxPath) {
     try {
@@ -2025,13 +2024,17 @@ db.run(`CREATE TABLE IF NOT EXISTS gdocs_templates (
                     });
         } else {
             // Admin existiert, stelle sicher dass rank gesetzt ist
-            if (!user.rank || user.rank !== 'admin') {
+           if (!user.rank || user.rank !== 'admin') {
                 db.run("UPDATE users SET rank = 'admin' WHERE username = 'admin'", (err) => {
                     if (!err) {
                         console.log('✅ Admin-User Rang aktualisiert');
                     }
                 });
             }
+        }
+    });
+}); // <- Schließende Klammer für db.serialize()
+
 // API Endpoints
 
 // Login
@@ -2957,6 +2960,7 @@ process.on('SIGINT', () => {
     });
 
 });
+
 
 
 
