@@ -2602,8 +2602,64 @@ app.get('/api/template-responses/:templateId', (req, res) => {
 });
 
 // G-Docs Template löschen
-app.delete('/api/gdocs-templates/:id', (req, res) => {
+app.delete('/api/gdocs-templates/:id', async (req, res) => {
     const { id } = req.params;
+    const { adminUsername } = req.body;
+    
+    console.log('🛡️ Template-Löschung Anfrage für ID:', id);
+    
+    if (!adminUsername) {
+        return res.status(400).json({ error: 'Administrator-Identifikation erforderlich' });
+    }
+    
+    try {
+        const userPerms = await getUserPermissions(adminUsername);
+        
+        if (!userPerms.canEditTemplates) {
+            console.error('❌ Unberechtigter Template-Löschungs-Versuch:', adminUsername);
+            
+            createLogEntry('UNAUTHORIZED_TEMPLATE_DELETE_ATTEMPT', adminUsername, userPerms.rank, 
+                          `Unbefugter Versuch Template ${id} zu löschen`, null, req.ip);
+            
+            return res.status(403).json({ 
+                error: 'Zugriff verweigert: Template-Löschung nur für Administratoren'
+            });
+        }
+        
+    } catch (permError) {
+        return res.status(401).json({ error: 'Berechtigungsprüfung fehlgeschlagen' });
+    }
+    
+    db.get('SELECT name FROM gdocs_templates WHERE id = ?', [id], (err, template) => {
+        if (err || !template) {
+            return res.status(404).json({ error: 'Vorlage nicht gefunden' });
+        }
+        
+        const templateName = template.name;
+        
+        db.run('DELETE FROM template_responses WHERE template_id = ?', [id], (err) => {
+            if (err) {
+                console.error('❌ Fehler beim Löschen der Template-Antworten:', err);
+            }
+            
+            db.run('DELETE FROM gdocs_templates WHERE id = ?', [id], (err) => {
+                if (err) {
+                    return res.status(500).json({ error: 'Datenbankfehler beim Löschen' });
+                }
+                
+                console.log('✅ Admin-Template erfolgreich gelöscht:', templateName);
+                
+                createLogEntry('GDOCS_TEMPLATE_DELETED_BY_ADMIN', adminUsername, userPerms.rank, 
+                              `Template "${templateName}" gelöscht - ADMIN`, null, req.ip);
+                
+                res.json({ 
+                    success: true,
+                    message: 'Template erfolgreich gelöscht (Administrator)'
+                });
+            });
+        });
+    });
+});
     
     db.get('SELECT name FROM gdocs_templates WHERE id = ?', [id], (err, template) => {
         if (err || !template) {
@@ -2731,6 +2787,7 @@ process.on('SIGINT', () => {
     });
 
 });
+
 
 
 
