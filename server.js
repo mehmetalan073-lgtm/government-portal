@@ -232,31 +232,37 @@ function getRankDisplay(rank) {
 }
 // ===== ADMIN-BERECHTIGUNGEN SERVER =====
 
-async function hasFullAccessServer(rank) {
+function hasFullAccessServer(rank) {
     const fullAccessRanks = ['nc-team', 'president', 'vice-president', 'admin'];
     return fullAccessRanks.includes(rank);
 }
 
 async function getUserPermissions(username) {
-    return new Promise((resolve, reject) => {
-        db.get('SELECT username, rank, full_name FROM users WHERE username = ? AND status = "approved"', 
-               [username], (err, user) => {
-            if (err) {
-                reject(err);
-            } else if (!user) {
-                reject(new Error('Benutzer nicht gefunden oder nicht genehmigt'));
-            } else {
-                const hasFullAccess = hasFullAccessServer(user.rank || 'user');
-                resolve({
-                    username: user.username,
-                    rank: user.rank || 'user',
-                    fullName: user.full_name,
-                    hasFullAccess: hasFullAccess,
-                    canEditTemplates: hasFullAccess
-                });
-            }
+    try {
+        const user = await new Promise((resolve, reject) => {
+            db.get('SELECT username, rank, full_name FROM users WHERE username = ? AND status = "approved"', 
+                   [username], (err, user) => {
+                if (err) reject(err);
+                else resolve(user);
+            });
         });
-    });
+        
+        if (!user) {
+            throw new Error('Benutzer nicht gefunden oder nicht genehmigt');
+        }
+        
+        const hasFullAccess = await hasFullAccessServer(user.rank || 'user');
+        
+        return {
+            username: user.username,
+            rank: user.rank || 'user',
+            fullName: user.full_name,
+            hasFullAccess: hasFullAccess,
+            canEditTemplates: hasFullAccess
+        };
+    } catch (error) {
+        throw error;
+    }
 }
 
 // Funktion: DOCX zu HTML für Vorschau konvertieren
@@ -341,89 +347,6 @@ app.put('/api/update-gdocs-template/:id', upload.single('templateFile'), async (
     
     try {
         console.log('🔍 Prüfe Berechtigungen für:', requestingUser);
-        const userPerms = await getUserPermissions(requestingUser);
-        
-        if (!userPerms.canEditTemplates) {
-            console.error('❌ Unberechtigter Template-Update Versuch von:', requestingUser);
-            
-            createLogEntry('UNAUTHORIZED_TEMPLATE_EDIT_ATTEMPT', requestingUser, userPerms.rank, 
-                          `Unbefugter Versuch Template ${id} zu bearbeiten`, null, req.ip);
-            
-            return res.status(403).json({ 
-                error: 'Zugriff verweigert: Template-Bearbeitung nur für Administratoren',
-                userRank: userPerms.rank,
-                requiredRanks: ['admin', 'nc-team', 'president', 'vice-president']
-            });
-        }
-        
-        console.log('✅ Admin-Berechtigung bestätigt');
-        
-    } catch (permError) {
-        console.error('❌ Berechtigungsprüfung fehlgeschlagen:', permError);
-        return res.status(401).json({ 
-            error: 'Berechtigungsprüfung fehlgeschlagen',
-            details: permError.message 
-        });
-    }
-    
-    if (!name) {
-        return res.status(400).json({ error: 'Template-Name ist erforderlich' });
-    }
-    
-    let questionsString = null;
-    if (questions) {
-        try {
-            const questionsObj = typeof questions === 'string' ? JSON.parse(questions) : questions;
-            questionsString = JSON.stringify(questionsObj);
-            console.log('📝 Admin-Update: Fragen verarbeitet:', questionsObj.length);
-        } catch (e) {
-            console.error('❌ Fehler beim Parsen der Admin-Fragen:', e);
-            return res.status(400).json({ error: 'Ungültiges Fragen-Format' });
-        }
-    }
-    
-    let updateQuery = 'UPDATE gdocs_templates SET name = ?, description = ?, available_ranks = ?';
-    let params = [name, description, availableRanks];
-    
-    if (questionsString !== null) {
-        updateQuery += ', questions = ?';
-        params.push(questionsString);
-    }
-    
-    if (req.file) {
-        updateQuery += ', file_path = ?, original_filename = ?';
-        params.push(req.file.path, req.file.originalname);
-    }
-    
-    updateQuery += ' WHERE id = ?';
-    params.push(id);
-    
-    db.run(updateQuery, params, function(err) {
-        if (err) {
-            console.error('❌ Datenbank-Fehler beim Admin-Template-Update:', err);
-            return res.status(500).json({ error: 'Fehler beim Aktualisieren: ' + err.message });
-        }
-        
-        if (this.changes === 0) {
-            return res.status(404).json({ error: 'Template nicht gefunden' });
-        }
-        
-        console.log('✅ Admin-Template erfolgreich aktualisiert');
-        
-        const questionsCount = questionsString ? JSON.parse(questionsString).length : 'unverändert';
-        createLogEntry('TEMPLATE_UPDATED_BY_ADMIN', requestingUser, userPerms.rank, 
-                      `Template "${name}" aktualisiert (${questionsCount} Fragen) - ADMIN`, null, req.ip);
-        
-        res.json({ 
-            success: true, 
-            message: 'Template erfolgreich aktualisiert (Administrator)',
-            questionsCount: questionsCount
-        });
-    });
-});
-    
-    try {
-        console.log('🔐 Prüfe Berechtigungen für:', requestingUser);
         const userPerms = await getUserPermissions(requestingUser);
         
         if (!userPerms.canEditTemplates) {
@@ -1664,47 +1587,6 @@ db.run(`CREATE TABLE IF NOT EXISTS file_counters (
     }
 });
 
-// Vereinfachter File-Counter - Ersetzen Sie die getNextFileNumber Funktion
-
-// Vereinfachte File Counter Tabelle
-db.run(`CREATE TABLE IF NOT EXISTS file_counters (
-    id INTEGER PRIMARY KEY AUTOINCREMENT,
-    prefix TEXT NOT NULL UNIQUE,
-    current_number INTEGER DEFAULT 0,
-    created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
-    updated_at DATETIME DEFAULT CURRENT_TIMESTAMP
-)`, (err) => {
-    if (!err) {
-        console.log('✅ File Counters Tabelle erstellt');
-        
-        // Nur B-Counter initialisieren
-        db.run(`INSERT OR IGNORE INTO file_counters (prefix, current_number) VALUES ('B', 0)`, 
-               (err) => {
-            if (!err) {
-                console.log('✅ B-Counter (Bewertung) initialisiert');
-            }
-        });
-    }
-});
-
-// Entferne die getRankSuffix Funktion - wird nicht mehr benötigt
-
-// Hilfsfunktion: Rang-Suffix für File-Nummer
-function getRankSuffix(userRank) {
-    const rankSuffixes = {
-        'admin': 'ADMIN',
-        'nc-team': 'NCTEAM',
-        'president': 'PRES',
-        'vice-president': 'VPRES',
-        'kabinettsmitglied': 'KABINETT',
-        'socom-operator': 'SOCOM',
-        'user': 'USER',
-        'besucher': 'VISITOR'
-    };
-    
-    return rankSuffixes[userRank.toLowerCase()] || 'GENERAL';
-}
-
     // Username Change Requests Tabelle
     db.run(`CREATE TABLE IF NOT EXISTS username_change_requests (
         id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -2692,32 +2574,6 @@ app.delete('/api/gdocs-templates/:id', async (req, res) => {
         });
     });
 });
-    
-    db.get('SELECT name FROM gdocs_templates WHERE id = ?', [id], (err, template) => {
-        if (err || !template) {
-            return res.status(404).json({ error: 'Vorlage nicht gefunden' });
-        }
-        
-        // Erst zugehörige Antworten löschen
-        db.run('DELETE FROM template_responses WHERE template_id = ?', [id], (err) => {
-            if (err) {
-                console.error('Fehler beim Löschen der Template-Antworten:', err);
-            }
-            
-            // Dann Template löschen
-            db.run('DELETE FROM gdocs_templates WHERE id = ?', [id], (err) => {
-                if (err) {
-                    return res.status(500).json({ error: 'Datenbankfehler' });
-                }
-                
-                // Log-Eintrag
-                createLogEntry('GDOCS_TEMPLATE_DELETED', 'admin', 'admin', `G-Docs Vorlage "${template.name}" gelöscht`, null, req.ip);
-                
-                res.json({ success: true });
-            });
-        });
-    });
-});
 
 // Test-Endpoint für Datenbank-Verbindung
 app.get('/api/test-db', (req, res) => {
@@ -2819,6 +2675,7 @@ process.on('SIGINT', () => {
     });
 
 });
+
 
 
 
