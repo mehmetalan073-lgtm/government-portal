@@ -73,6 +73,7 @@ app.use(express.static('.', {
     redirect: false,
     setHeaders: function (res, path, stat) {
         res.set('x-timestamp', Date.now())
+        res.set('Cache-Control', 'no-cache');
     }
 }));
 
@@ -1781,4 +1782,5 @@ process.on('SIGINT', () => {
         process.exit(0);
     });
 });
+
 
