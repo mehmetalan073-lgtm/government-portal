@@ -4449,9 +4449,121 @@ body.dark .question-header {
     border-bottom-color: #4a4a4a;
 }
     </script>
+    <script>
+// ===== FRONTEND JAVASCRIPT =====
+
+let currentSession = null;
+
+// Login versuchen
+async function attemptLogin() {
+    const username = document.getElementById('username').value;
+    const password = document.getElementById('password').value;
+    
+    if (!username || !password) {
+        alert('Bitte Username und Passwort eingeben');
+        return;
+    }
+    
+    try {
+        const response = await fetch('/api/login', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ username, password })
+        });
+        
+        const data = await response.json();
+        
+        if (data.success) {
+            currentSession = { user: data.user };
+            showDashboard();
+        } else {
+            alert('Fehler: ' + data.error);
+        }
+    } catch (error) {
+        alert('Verbindungsfehler: ' + error.message);
+    }
+}
+
+// Registrierung anzeigen
+function showRegister() {
+    document.getElementById('loginScreen').style.display = 'none';
+    document.getElementById('registerScreen').style.display = 'block';
+}
+
+// Login anzeigen
+function showLogin() {
+    document.getElementById('registerScreen').style.display = 'none';
+    document.getElementById('loginScreen').style.display = 'block';
+}
+
+// Dashboard anzeigen
+function showDashboard() {
+    document.querySelectorAll('.screen').forEach(screen => {
+        screen.style.display = 'none';
+    });
+    document.getElementById('dashboardScreen').style.display = 'block';
+    
+    if (currentSession?.user) {
+        document.getElementById('welcomeUser').textContent = currentSession.user.fullName;
+    }
+}
+
+// Logout
+function logout() {
+    currentSession = null;
+    showLogin();
+}
+
+// API Call Helper
+async function apiCall(endpoint, options = {}) {
+    const response = await fetch('/api' + endpoint, {
+        headers: { 'Content-Type': 'application/json' },
+        ...options
+    });
+    
+    if (!response.ok) {
+        const error = await response.json();
+        throw new Error(error.error || 'API Fehler');
+    }
+    
+    return response.json();
+}
+
+// Registrierung versuchen
+async function attemptRegister() {
+    const username = document.getElementById('regUsername').value;
+    const password = document.getElementById('regPassword').value;
+    const fullName = document.getElementById('regFullName').value;
+    const email = document.getElementById('regEmail').value;
+    const reason = document.getElementById('regReason').value;
+    
+    if (!username || !password || !fullName || !email || !reason) {
+        alert('Alle Felder sind erforderlich');
+        return;
+    }
+    
+    try {
+        await apiCall('/register', {
+            method: 'POST',
+            body: JSON.stringify({ username, password, fullName, email, reason })
+        });
+        
+        alert('Registrierung erfolgreich eingereicht! Warten Sie auf die Genehmigung.');
+        showLogin();
+    } catch (error) {
+        alert('Registrierung fehlgeschlagen: ' + error.message);
+    }
+}
+
+// Beim Laden der Seite
+document.addEventListener('DOMContentLoaded', function() {
+    showLogin();
+});
+</script>
 </body>
 
 </html>
+
 
 
 
