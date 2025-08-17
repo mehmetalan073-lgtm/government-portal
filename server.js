@@ -68,7 +68,7 @@ app.use(express.static('.', {
     dotfiles: 'ignore',
     etag: false,
     extensions: ['html', 'js', 'css'],
-    index: false,
+    index: 'index.html',
     maxAge: '1d',
     redirect: false,
     setHeaders: function (res, path, stat) {
@@ -1754,7 +1754,7 @@ app.use((err, req, res, next) => {
 
 // ===== SERVER STARTEN =====
 
-app.listen(PORT, '0.0.0.0', () => {
+app.listen(PORT, '0.0.0.0', () => {  // <-- Railway braucht '0.0.0.0'
     console.log(`🏛️ Regierungspanel v24-KORRIGIERT läuft auf http://localhost:${PORT}`);
     console.log(`📊 SQLite Datenbank: government_portal.db`);
     console.log(`🔐 Admin Login: admin / memo`);
@@ -1781,3 +1781,4 @@ process.on('SIGINT', () => {
         process.exit(0);
     });
 });
+
