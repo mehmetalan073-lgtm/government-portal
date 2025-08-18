@@ -114,18 +114,18 @@ async function generateDocxFromTemplate(templatePath, answers, outputFilename, s
         console.log('📝 Antworten:', answers);
         console.log('👤 Erstellt von:', submittedBy);
         
-        // Template-Datei lesen
-         templateContent = fs.readFileSync(templatePath, 'binary');
-         zip = new PizZip(templateContent);
+        / Template-Datei lesen
+        const templateContent = fs.readFileSync(templatePath, 'binary');
+        const zip = new PizZip(templateContent);
         
         // Docxtemplater erstellen
-         doc = new Docxtemplater(zip, {
+        const doc = new Docxtemplater(zip, {
             paragraphLoop: true,
             linebreaks: true,
         });
         
         // Platzhalter durch Antworten ersetzen
-         templateData = {};
+         const templateData = {};
         
         // Konvertiere field-X zu readable names falls möglich
         Object.entries(answers).forEach(([key, value]) => {
@@ -135,7 +135,7 @@ async function generateDocxFromTemplate(templatePath, answers, outputFilename, s
         });
         
         // Lade Benutzerdaten aus der Datenbank
-         userData = await new Promise((resolve, reject) => {
+         const userData = await new Promise((resolve, reject) => {
             db.get('SELECT * FROM users WHERE username = ?', [submittedBy], (err, user) => {
                 if (err) reject(err);
                 else resolve(user || {});
@@ -2603,6 +2603,7 @@ process.on('SIGINT', () => {
     });
 
 });
+
 
 
 
