@@ -1395,19 +1395,19 @@ app.post('/api/log-document-view', (req, res) => {
 // Tabellen erstellen und migrieren
 db.serialize(() => {
     // Users Tabelle mit Rang-System
-    db.run(`CREATE TABLE IF NOT EXISTS users (
-        id INTEGER PRIMARY KEY AUTOINCREMENT,
-        username TEXT UNIQUE NOT NULL,
-        password_hash TEXT NOT NULL,
-        full_name TEXT NOT NULL,
-        rank TEXT DEFAULT 'user',
-        role TEXT DEFAULT 'user',
-        status TEXT DEFAULT 'approved',
-        dark_mode INTEGER DEFAULT 0,
-        created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
-        approved_by TEXT,
-        approved_at DATETIME
-    )`, (err) => {
+db.run(`CREATE TABLE IF NOT EXISTS users (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    username TEXT UNIQUE NOT NULL,
+    password_hash TEXT NOT NULL,
+    full_name TEXT NOT NULL,
+    rank TEXT DEFAULT 'user',
+    role TEXT DEFAULT 'user',
+    status TEXT DEFAULT 'approved',
+    dark_mode INTEGER DEFAULT 0,
+    created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+    approved_by TEXT,
+    approved_at DATETIME
+)`, (err) => {
         if (err) {
             console.log('Users Tabelle existiert bereits');
         }
@@ -1713,9 +1713,9 @@ db.run(`CREATE TABLE IF NOT EXISTS gdocs_templates (
     db.get("SELECT * FROM users WHERE username = 'admin'", (err, user) => {
         if (!user) {
             // Admin existiert nicht, erstelle ihn
-            db.run(`INSERT INTO users (username, password_hash, full_name, email, rank, role, status) 
-                    VALUES ('admin', ?, 'Systemadministrator', 'admin@system.gov.de', 'admin', 'admin', 'approved')`, 
-                    [adminPassword], (err) => {
+            db.run(`INSERT INTO users (username, password_hash, full_name, rank, role, status) 
+        VALUES ('admin', ?, 'Systemadministrator', 'admin', 'admin', 'approved')`, 
+        [adminPassword], (err) => {
                         if (!err) {
                             console.log('✅ Admin-User erfolgreich erstellt');
                         }
@@ -1756,7 +1756,6 @@ app.post('/api/login', (req, res) => {
                 id: user.id,
                 username: user.username,
                 fullName: user.full_name,
-                email: user.email,
                 rank: user.rank || 'user',
                 role: user.role,
                 darkMode: user.dark_mode === 1
@@ -2601,6 +2600,7 @@ process.on('SIGINT', () => {
     });
 
 });
+
 
 
 
