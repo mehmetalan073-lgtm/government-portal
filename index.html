@@ -178,9 +178,16 @@
         .question-fields .form-group.full{grid-column:1 / -1}
         
         /* Dark Mode für Questions */
-        body.dark .questions-container{background:#3a3a3a;border-color:#4a4a4a}
-        body.dark .question-item{background:#2d2d2d;border-color:#4a4a4a;color:#e0e0e0}
-        body.dark .question-number{color:#c0c0ff}
+body.dark .questions-container{background:#3a3a3a;border-color:#4a4a4a}
+body.dark .question-item{background:#2d2d2d;border-color:#4a4a4a;color:#e0e0e0}
+body.dark .question-number{color:#c0c0ff}
+
+/* Dark Mode für Edit Questions Modal */
+body.dark #editQuestionsModal .documents-modal-content{background:#2d2d2d;color:#e0e0e0}
+body.dark #editQuestionsModal .question-item{background:#2d2d2d;border-color:#4a4a4a;color:#e0e0e0}
+body.dark #editQuestionsModal .question-number{color:#c0c0ff}
+body.dark #editQuestionsModal input,body.dark #editQuestionsModal textarea,body.dark #editQuestionsModal select{background:#3a3a3a;border-color:#4a4a4a;color:#e0e0e0}
+body.dark #editQuestionsModal label{color:#e0e0e0}
         
         /* Dark Mode für Modal */
         body.dark .documents-modal-content{background:#2d2d2d;color:#e0e0e0}
@@ -3106,10 +3113,13 @@ function showEditTemplateModal(template) {
                     </div>
                 </form>
                 
-                <div style="margin-top: 20px; text-align: right;">
-                    <button onclick="closeEditTemplateModal()" class="btn-secondary" style="width: auto; padding: 10px 20px; margin-right: 10px;">Abbrechen</button>
-                    <button onclick="saveTemplateChanges(${template.id})" class="btn-success" style="width: auto; padding: 10px 20px;">💾 Speichern</button>
-                </div>
+                <div style="margin-top: 20px; display: flex; justify-content: space-between; align-items: center;">
+    <button onclick="editTemplateQuestions(${template.id})" class="btn-warning" style="width: auto; padding: 10px 20px;">📝 Fragen bearbeiten</button>
+    <div>
+        <button onclick="closeEditTemplateModal()" class="btn-secondary" style="width: auto; padding: 10px 20px; margin-right: 10px;">Abbrechen</button>
+        <button onclick="saveTemplateChanges(${template.id})" class="btn-success" style="width: auto; padding: 10px 20px;">💾 Speichern</button>
+    </div>
+</div>
                 
                 <div id="editTemplateError" class="error"></div>
                 <div id="editTemplateSuccess" class="success"></div>
@@ -3126,7 +3136,257 @@ function closeEditTemplateModal() {
         modal.remove();
     }
 }
+async function editTemplateQuestions(templateId) {
+    console.log('📝 Bearbeite Fragen für Template ID:', templateId);
+    
+    try {
+        // Lade Template-Details
+        const template = await apiCall(`/gdocs-template/${templateId}`);
+        
+        showTemplateQuestionsEditModal(template);
+        
+    } catch (error) {
+        console.error('❌ Fehler beim Laden des Templates:', error);
+        alert(`Fehler: ${error.message}`);
+    }
+}
 
+function showTemplateQuestionsEditModal(template) {
+    // Entferne bereits vorhandenes Modal
+    const existingModal = document.getElementById('editQuestionsModal');
+    if (existingModal) {
+        existingModal.remove();
+    }
+    
+    const questionsModal = document.createElement('div');
+    questionsModal.className = 'documents-modal active';
+    questionsModal.id = 'editQuestionsModal';
+    
+    questionsModal.innerHTML = `
+        <div class="documents-modal-content" style="max-width: 1000px;">
+            <div class="documents-modal-header">
+                <h2 class="documents-modal-title">📝 Fragen bearbeiten: ${template.name}</h2>
+                <button class="documents-modal-close" onclick="closeEditQuestionsModal()">×</button>
+            </div>
+            <div class="documents-modal-body">
+                <div style="margin-bottom: 20px; padding: 15px; background: #f8f9fa; border-radius: 6px;">
+                    <p><strong>Template:</strong> ${template.name}</p>
+                    <p><strong>Beschreibung:</strong> ${template.description || 'Keine Beschreibung'}</p>
+                </div>
+                
+                <h3>📋 Fragen bearbeiten:</h3>
+                <div id="editQuestionsList" class="questions-container">
+                    <!-- Fragen werden hier geladen -->
+                </div>
+                <button type="button" onclick="addEditQuestion()" class="btn-secondary" style="width: auto; padding: 8px 16px; margin: 10px 0;">➕ Neue Frage hinzufügen</button>
+                
+                <div style="margin-top: 30px; text-align: right;">
+                    <button onclick="closeEditQuestionsModal()" class="btn-secondary" style="width: auto; padding: 10px 20px; margin-right: 10px;">Abbrechen</button>
+                    <button onclick="saveTemplateQuestions(${template.id})" class="btn-success" style="width: auto; padding: 10px 20px;">💾 Fragen speichern</button>
+                </div>
+                
+                <div id="editQuestionsError" class="error"></div>
+                <div id="editQuestionsSuccess" class="success"></div>
+            </div>
+        </div>
+    `;
+    
+    document.body.appendChild(questionsModal);
+    
+    // Lade bestehende Fragen
+    loadExistingQuestions(template);
+    
+    // Modal außerhalb schließen
+    questionsModal.addEventListener('click', function(e) {
+        if (e.target === questionsModal) {
+            closeEditQuestionsModal();
+        }
+    });
+}
+
+function loadExistingQuestions(template) {
+    const container = document.getElementById('editQuestionsList');
+    if (!container) return;
+    
+    // Reset counter
+    editQuestionCounter = 0;
+    
+    if (template.questions) {
+        try {
+            const questions = typeof template.questions === 'string' ? JSON.parse(template.questions) : template.questions;
+            
+            if (Array.isArray(questions) && questions.length > 0) {
+                questions.forEach(question => {
+                    addEditQuestion(question);
+                });
+                console.log(`✅ ${questions.length} bestehende Fragen geladen`);
+            } else {
+                console.log('ℹ️ Keine bestehenden Fragen gefunden');
+            }
+        } catch (e) {
+            console.error('❌ Fehler beim Parsen der Fragen:', e);
+        }
+    }
+    
+    // Falls keine Fragen geladen wurden, füge eine leere hinzu
+    if (editQuestionCounter === 0) {
+        addEditQuestion();
+    }
+}
+
+let editQuestionCounter = 0;
+
+function addEditQuestion(existingQuestion = null) {
+    editQuestionCounter++;
+    const questionsContainer = document.getElementById('editQuestionsList');
+    
+    const questionDiv = document.createElement('div');
+    questionDiv.className = 'question-item';
+    questionDiv.id = `edit-question-${editQuestionCounter}`;
+    
+    const questionData = existingQuestion || {
+        text: '',
+        type: 'text',
+        placeholder: '',
+        required: true,
+        options: []
+    };
+    
+    questionDiv.innerHTML = `
+        <div class="question-header">
+            <span class="question-number">Frage ${editQuestionCounter}</span>
+            <button type="button" class="question-remove" onclick="removeEditQuestion(${editQuestionCounter})">🗑️ Entfernen</button>
+        </div>
+        <div class="question-fields">
+            <div class="form-group">
+                <label>Frage-Text:</label>
+                <input type="text" id="edit-question-text-${editQuestionCounter}" placeholder="z.B. Vollständiger Name" value="${questionData.text}" data-question-id="${editQuestionCounter}">
+            </div>
+            <div class="form-group">
+                <label>Feld-Typ:</label>
+                <select id="edit-question-type-${editQuestionCounter}" data-question-id="${editQuestionCounter}">
+                    <option value="text" ${questionData.type === 'text' ? 'selected' : ''}>Text (Einzeilig)</option>
+                    <option value="textarea" ${questionData.type === 'textarea' ? 'selected' : ''}>Text (Mehrzeilig)</option>
+                    <option value="email" ${questionData.type === 'email' ? 'selected' : ''}>E-Mail</option>
+                    <option value="tel" ${questionData.type === 'tel' ? 'selected' : ''}>Telefon</option>
+                    <option value="date" ${questionData.type === 'date' ? 'selected' : ''}>Datum</option>
+                    <option value="number" ${questionData.type === 'number' ? 'selected' : ''}>Zahl</option>
+                    <option value="select" ${questionData.type === 'select' ? 'selected' : ''}>Auswahl (Dropdown)</option>
+                    <option value="radio" ${questionData.type === 'radio' ? 'selected' : ''}>Auswahl (Radio)</option>
+                    <option value="checkbox" ${questionData.type === 'checkbox' ? 'selected' : ''}>Checkboxen</option>
+                </select>
+            </div>
+            <div class="form-group">
+                <label>Platzhalter/Hilfstext:</label>
+                <input type="text" id="edit-question-placeholder-${editQuestionCounter}" placeholder="z.B. Vor- und Nachname" value="${questionData.placeholder}" data-question-id="${editQuestionCounter}">
+            </div>
+            <div class="form-group">
+                <label>Erforderlich:</label>
+                <label style="margin-top: 8px;"><input type="checkbox" id="edit-question-required-${editQuestionCounter}" data-question-id="${editQuestionCounter}" ${questionData.required ? 'checked' : ''}> Pflichtfeld</label>
+            </div>
+            <div class="form-group full" id="edit-question-options-${editQuestionCounter}" style="display: ${['select', 'radio', 'checkbox'].includes(questionData.type) ? 'block' : 'none'};">
+                <label>Auswahloptionen (eine pro Zeile):</label>
+                <textarea id="edit-question-options-text-${editQuestionCounter}" placeholder="Option 1&#10;Option 2&#10;Option 3" rows="3" data-question-id="${editQuestionCounter}">${Array.isArray(questionData.options) ? questionData.options.join('\n') : ''}</textarea>
+            </div>
+        </div>
+    `;
+    
+    questionsContainer.appendChild(questionDiv);
+    
+    // Event Listener für Typ-Änderung
+    const typeSelect = document.getElementById(`edit-question-type-${editQuestionCounter}`);
+    typeSelect.addEventListener('change', function() {
+        toggleEditOptionsField(editQuestionCounter, this.value);
+    });
+    
+    console.log('➕ Bearbeitungs-Frage hinzugefügt:', editQuestionCounter);
+}
+
+function removeEditQuestion(questionId) {
+    const questionDiv = document.getElementById(`edit-question-${questionId}`);
+    if (questionDiv) {
+        questionDiv.remove();
+        console.log('🗑️ Bearbeitungs-Frage entfernt:', questionId);
+    }
+}
+
+function toggleEditOptionsField(questionId, fieldType) {
+    const optionsDiv = document.getElementById(`edit-question-options-${questionId}`);
+    if (optionsDiv) {
+        const showOptions = ['select', 'radio', 'checkbox'].includes(fieldType);
+        optionsDiv.style.display = showOptions ? 'block' : 'none';
+    }
+}
+
+function collectEditQuestions() {
+    const questions = [];
+    const questionItems = document.querySelectorAll('#editQuestionsList .question-item');
+    
+    questionItems.forEach((item, index) => {
+        const questionId = item.id.split('-')[2]; // edit-question-X
+        const text = document.getElementById(`edit-question-text-${questionId}`)?.value.trim();
+        const type = document.getElementById(`edit-question-type-${questionId}`)?.value;
+        const placeholder = document.getElementById(`edit-question-placeholder-${questionId}`)?.value.trim();
+        const required = document.getElementById(`edit-question-required-${questionId}`)?.checked;
+        const optionsText = document.getElementById(`edit-question-options-text-${questionId}`)?.value.trim();
+        
+        if (text) {
+            const question = {
+                id: questionId,
+                order: index + 1,
+                text: text,
+                type: type,
+                placeholder: placeholder || '',
+                required: required || false,
+                options: optionsText ? optionsText.split('\n').filter(opt => opt.trim()) : []
+            };
+            questions.push(question);
+        }
+    });
+    
+    console.log('📋 Gesammelte bearbeitete Fragen:', questions);
+    return questions;
+}
+
+async function saveTemplateQuestions(templateId) {
+    const questions = collectEditQuestions();
+    
+    if (questions.length === 0) {
+        showError('editQuestionsError', 'Mindestens eine Frage muss vorhanden sein');
+        return;
+    }
+    
+    try {
+        const response = await fetch(`${API_BASE}/update-template-questions/${templateId}`, {
+            method: 'PUT',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ questions: questions })
+        });
+        
+        if (!response.ok) {
+            throw new Error(`HTTP ${response.status}: ${response.statusText}`);
+        }
+        
+        const result = await response.json();
+        
+        showSuccess('editQuestionsSuccess', `Fragen erfolgreich aktualisiert! (${questions.length} Fragen gespeichert)`);
+        
+        setTimeout(() => {
+            closeEditQuestionsModal();
+            loadGdocsTemplates(); // Aktualisiere die Template-Liste
+        }, 1500);
+        
+    } catch (error) {
+        showError('editQuestionsError', error.message);
+    }
+}
+
+function closeEditQuestionsModal() {
+    const modal = document.getElementById('editQuestionsModal');
+    if (modal) {
+        modal.remove();
+    }
+}
 async function saveTemplateChanges(templateId) {
     const name = document.getElementById('editTemplateName').value.trim();
     const description = document.getElementById('editTemplateDescription').value.trim();
@@ -3758,3 +4018,4 @@ async function saveTemplateChanges(templateId) {
     </script>
 </body>
 </html>
+
