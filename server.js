@@ -1400,7 +1400,6 @@ db.serialize(() => {
         username TEXT UNIQUE NOT NULL,
         password_hash TEXT NOT NULL,
         full_name TEXT NOT NULL,
-        email TEXT NOT NULL,
         rank TEXT DEFAULT 'user',
         role TEXT DEFAULT 'user',
         status TEXT DEFAULT 'approved',
@@ -1441,7 +1440,7 @@ db.serialize(() => {
     });
 
     // Registrations Tabelle
-    db.run(`CREATE TABLE IF NOT EXISTS registrations (
+   db.run(`CREATE TABLE IF NOT EXISTS registrations (
     id INTEGER PRIMARY KEY AUTOINCREMENT,
     username TEXT UNIQUE NOT NULL,
     password_hash TEXT NOT NULL,
@@ -2602,6 +2601,7 @@ process.on('SIGINT', () => {
     });
 
 });
+
 
 
 
