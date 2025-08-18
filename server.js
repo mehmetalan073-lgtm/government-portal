@@ -1819,7 +1819,7 @@ app.post('/api/approve-registration/:id', (req, res) => {
         // Benutzer mit Standard-Rang 'besucher' erstellen
         db.run(`INSERT INTO users (username, password_hash, full_name, rank, role, status, approved_by, approved_at) 
         VALUES (?, ?, ?, 'besucher', 'user', 'approved', ?, CURRENT_TIMESTAMP)`,
-        [registration.username, registration.password_hash, registration.full_name, adminUsername],
+        [registration.username, registration.password_hash, registration.full_name, adminUsername], (err) => {
                     if (err) {
                         return res.status(500).json({ error: 'Fehler beim Erstellen des Benutzers' });
                     }
@@ -2603,6 +2603,7 @@ process.on('SIGINT', () => {
     });
 
 });
+
 
 
 
