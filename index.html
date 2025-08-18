@@ -372,7 +372,6 @@ body.dark .document-item[style*="border-left: 4px solid #17a2b8"] {
                 <div class="system-info"><strong>Wichtiger Hinweis:</strong><br>Ihr Antrag wird in der SQL-Datenbank gespeichert und von einem Administrator geprüft.</div>
                 <div class="form-group"><label>Gewünschter Benutzername:</label><input type="text" id="newUsername" placeholder="Eindeutige Benutzerkennung" maxlength="20"></div>
                 <div class="form-group"><label>Vollständiger Name:</label><input type="text" id="fullName" placeholder="Vor- und Nachname" maxlength="50"></div>
-                <div class="form-group"><label>Dienstliche E-Mail-Adresse:</label><input type="email" id="email" placeholder="name@behoerde.gov.de" maxlength="100"></div>
                 <div class="form-group"><label>Sicherheitskennwort:</label><input type="password" id="newPassword" placeholder="Mindestens 6 Zeichen" maxlength="50"></div>
                 <div class="form-group"><label>Kennwort bestätigen:</label><input type="password" id="confirmPassword" placeholder="Kennwort wiederholen" maxlength="50"></div>
                 <div class="form-group"><label>Dienstliche Begründung:</label><textarea id="reason" placeholder="Begründung für den Systemzugang" maxlength="300"></textarea></div>
@@ -471,7 +470,6 @@ body.dark .document-item[style*="border-left: 4px solid #17a2b8"] {
                         <h3>👤 Benutzerinformationen</h3>
                         <p><strong>Benutzername:</strong> <span id="settingsUsername">Laden...</span></p>
                         <p><strong>Vollständiger Name:</strong> <span id="settingsFullName">Laden...</span></p>
-                        <p><strong>E-Mail:</strong> <span id="settingsEmail">Laden...</span></p>
                         <p><strong>Rolle:</strong> <span id="settingsRole">Laden...</span></p>
                         <p><strong>Angemeldet seit:</strong> <span id="settingsLoginTime">Laden...</span></p>
                     </div>
@@ -922,13 +920,12 @@ function closeDocxPreviewModal() {
             const userData = {
                 username: document.getElementById('newUsername').value.trim(),
                 fullName: document.getElementById('fullName').value.trim(),
-                email: document.getElementById('email').value.trim(),
                 password: document.getElementById('newPassword').value.trim(),
                 confirmPassword: document.getElementById('confirmPassword').value.trim(),
                 reason: document.getElementById('reason').value.trim()
             };
 
-            if (!userData.username || !userData.fullName || !userData.email || !userData.password || !userData.confirmPassword || !userData.reason) {
+            if (!userData.username || !userData.fullName || !userData.password || !userData.confirmPassword || !userData.reason) {
                 showError('registerError', 'Alle Felder müssen ausgefüllt werden.');
                 return;
             }
@@ -1208,7 +1205,6 @@ function initializeDocumentsDropdown() {
             container.innerHTML = pending.map(reg => `
                 <div class="user-card">
                     <h4>${reg.full_name} (${reg.username})</h4>
-                    <p><strong>E-Mail:</strong> ${reg.email}</p>
                     <p><strong>Eingereicht:</strong> ${new Date(reg.created_at).toLocaleString('de-DE')}</p>
                     <p><strong>Begründung:</strong> ${reg.reason}</p>
                     <span class="status pending">Wartend</span>
@@ -1235,7 +1231,6 @@ function initializeDocumentsDropdown() {
                             ${user.full_name} (${user.username})
                             <span class="rank-badge ${rankClass}">${rankDisplay}</span>
                         </h4>
-                        <p><strong>E-Mail:</strong> ${user.email}</p>
                         <p><strong>Rang:</strong> ${rankDisplay}</p>
                         <p><strong>Erstellt:</strong> ${new Date(user.created_at).toLocaleString('de-DE')}</p>
                         ${user.approved_by ? `<p><strong>Genehmigt von:</strong> ${user.approved_by}</p>` : ''}
@@ -1686,7 +1681,6 @@ function initializeDocumentsDropdown() {
             if (currentSession.user) {
                 if (settingsUsername) settingsUsername.textContent = currentSession.user.username;
                 if (settingsFullName) settingsFullName.textContent = currentSession.user.fullName;
-                if (settingsEmail) settingsEmail.textContent = currentSession.user.email;
                 if (settingsRole) settingsRole.textContent = getRankDisplay(currentSession.user.rank || 'user');
                 if (settingsLoginTime) settingsLoginTime.textContent = currentSession.loginTime;
                 if (lastActivity) lastActivity.textContent = new Date().toLocaleString('de-DE');
@@ -1918,11 +1912,9 @@ setTimeout(() => {
             if (!currentSession.user) return;
             
             const docFullName = document.getElementById('docFullName');
-            const docEmail = document.getElementById('docEmail');
             const docApplicationDate = document.getElementById('docApplicationDate');
             
             if (docFullName) docFullName.value = currentSession.user.fullName || '';
-            if (docEmail) docEmail.value = currentSession.user.email || '';
             if (docApplicationDate) docApplicationDate.value = new Date().toISOString().split('T')[0];
         }
 
@@ -1934,7 +1926,6 @@ setTimeout(() => {
                 birthDate: document.getElementById('docBirthDate').value,
                 address: document.getElementById('docAddress').value.trim(),
                 phone: document.getElementById('docPhone').value.trim(),
-                email: document.getElementById('docEmail').value.trim(),
                 purpose: document.getElementById('docPurpose').value.trim(),
                 applicationDate: document.getElementById('docApplicationDate').value,
                 additional: document.getElementById('docAdditional').value.trim(),
@@ -1944,8 +1935,8 @@ setTimeout(() => {
             console.log('📋 Dokument-Daten gesammelt:', documentData);
 
             // Validation
-            if (!documentData.fullName || !documentData.email || !documentData.purpose) {
-                const errorMsg = 'Name, E-Mail und Zweck sind erforderlich.';
+            if (!documentData.fullName || !documentData.purpose) {
+                const errorMsg = 'Name und Zweck sind erforderlich.');
                 console.error('❌ Validierung fehlgeschlagen:', errorMsg);
                 showError('documentCreateError', errorMsg);
                 return;
@@ -2155,7 +2146,6 @@ function showDocumentDetailsModal(documentData) {
                     <div class="document-title" style="font-size: 20px; margin-bottom: 15px;">${documentData.full_name} - ${documentData.purpose}</div>
                     <div class="document-details">
                         ${creatorInfo}
-                        <p><strong>E-Mail:</strong> ${documentData.email}</p>
                         ${documentData.birth_date ? `<p><strong>Geburtsdatum:</strong> ${new Date(documentData.birth_date).toLocaleDateString('de-DE')}</p>` : ''}
                         ${documentData.address ? `<p><strong>Adresse:</strong> ${documentData.address}</p>` : ''}
                         ${documentData.phone ? `<p><strong>Telefon:</strong> ${documentData.phone}</p>` : ''}
@@ -2307,7 +2297,6 @@ function updateDocumentsList(documents, viewMode = 'my') {
                 </div>
                 <div class="document-details">
                     ${creatorInfo}
-                    <p><strong>E-Mail:</strong> ${doc.email}</p>
                     ${doc.birth_date ? `<p><strong>Geburtsdatum:</strong> ${new Date(doc.birth_date).toLocaleDateString('de-DE')}</p>` : ''}
                     ${doc.address ? `<p><strong>Adresse:</strong> ${doc.address}</p>` : ''}
                     ${doc.phone ? `<p><strong>Telefon:</strong> ${doc.phone}</p>` : ''}
@@ -2500,7 +2489,6 @@ function closeDocxPreviewModal() {
                         <select id="question-type-${questionCounter}" data-question-id="${questionCounter}">
                             <option value="text">Text (Einzeilig)</option>
                             <option value="textarea">Text (Mehrzeilig)</option>
-                            <option value="email">E-Mail</option>
                             <option value="tel">Telefon</option>
                             <option value="date">Datum</option>
                             <option value="number">Zahl</option>
@@ -3267,7 +3255,6 @@ function addEditQuestion(existingQuestion = null) {
                 <select id="edit-question-type-${editQuestionCounter}" data-question-id="${editQuestionCounter}">
                     <option value="text" ${questionData.type === 'text' ? 'selected' : ''}>Text (Einzeilig)</option>
                     <option value="textarea" ${questionData.type === 'textarea' ? 'selected' : ''}>Text (Mehrzeilig)</option>
-                    <option value="email" ${questionData.type === 'email' ? 'selected' : ''}>E-Mail</option>
                     <option value="tel" ${questionData.type === 'tel' ? 'selected' : ''}>Telefon</option>
                     <option value="date" ${questionData.type === 'date' ? 'selected' : ''}>Datum</option>
                     <option value="number" ${questionData.type === 'number' ? 'selected' : ''}>Zahl</option>
@@ -4018,4 +4005,5 @@ async function saveTemplateChanges(templateId) {
     </script>
 </body>
 </html>
+
 
