@@ -672,6 +672,13 @@ body.dark .document-item[style*="border-left: 4px solid #17a2b8"] {
     </div>
 
     <script>
+        // Globale Funktionen für Buttons
+window.attemptLogin = attemptLogin;
+window.showRegister = showRegister;
+window.submitRegistration = submitRegistration;
+window.showLogin = showLogin;
+window.logout = logout;
+window.openDocumentsModal = openDocumentsModal;
         const API_BASE = window.location.hostname === 'localhost' 
     ? 'http://localhost:3000/api'
     : '/api';
@@ -4005,5 +4012,6 @@ async function saveTemplateChanges(templateId) {
     </script>
 </body>
 </html>
+
 
 
