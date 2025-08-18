@@ -296,6 +296,49 @@ async function viewDocumentDetails(docId) {
         alert(`Fehler beim Laden der Details: ${error.message}`);
     }
 }
+// Template-Fragen separat bearbeiten
+app.put('/api/update-template-questions/:id', (req, res) => {
+    const { id } = req.params;
+    const { questions } = req.body;
+    
+    if (!questions || !Array.isArray(questions)) {
+        return res.status(400).json({ error: 'Fragen-Array ist erforderlich' });
+    }
+    
+    if (questions.length === 0) {
+        return res.status(400).json({ error: 'Mindestens eine Frage ist erforderlich' });
+    }
+    
+    const questionsString = JSON.stringify(questions);
+    
+    // Prüfe ob Template existiert
+    db.get('SELECT name, created_by FROM gdocs_templates WHERE id = ?', [id], (err, template) => {
+        if (err) {
+            return res.status(500).json({ error: 'Datenbankfehler: ' + err.message });
+        }
+        
+        if (!template) {
+            return res.status(404).json({ error: 'Template nicht gefunden' });
+        }
+        
+        // Aktualisiere nur die Fragen
+        db.run('UPDATE gdocs_templates SET questions = ? WHERE id = ?', [questionsString, id], function(err) {
+            if (err) {
+                return res.status(500).json({ error: 'Fehler beim Aktualisieren der Fragen: ' + err.message });
+            }
+            
+            console.log(`✅ Fragen für Template "${template.name}" aktualisiert (${questions.length} Fragen)`);
+            
+            createLogEntry('TEMPLATE_QUESTIONS_UPDATED', template.created_by, 'admin', `${questions.length} Fragen für Template "${template.name}" aktualisiert`, null, req.ip);
+            
+            res.json({ 
+                success: true, 
+                message: `${questions.length} Fragen erfolgreich aktualisiert`,
+                questionsCount: questions.length
+            });
+        });
+    });
+});
 // Template bearbeiten
 app.put('/api/update-gdocs-template/:id', upload.single('templateFile'), (req, res) => {
     const { id } = req.params;
@@ -2562,6 +2605,7 @@ process.on('SIGINT', () => {
     });
 
 });
+
 
 
 
