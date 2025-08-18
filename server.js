@@ -114,7 +114,7 @@ async function generateDocxFromTemplate(templatePath, answers, outputFilename, s
         console.log('📝 Antworten:', answers);
         console.log('👤 Erstellt von:', submittedBy);
         
-        / Template-Datei lesen
+        // Template-Datei lesen
         const templateContent = fs.readFileSync(templatePath, 'binary');
         const zip = new PizZip(templateContent);
         
@@ -2603,6 +2603,7 @@ process.on('SIGINT', () => {
     });
 
 });
+
 
 
 
