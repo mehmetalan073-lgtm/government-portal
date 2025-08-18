@@ -1769,9 +1769,9 @@ app.post('/api/login', (req, res) => {
 
 // Registrierung beantragen
 app.post('/api/register', (req, res) => {
-    const { username, password, fullName, email, reason } = req.body;
+    const { username, password, fullName, reason } = req.body;
     
-    if (!username || !password || !fullName || !email || !reason) {
+    if (!username || !password || !fullName || !reason) {
         return res.status(400).json({ error: 'Alle Felder sind erforderlich' });
     }
     
@@ -1781,9 +1781,9 @@ app.post('/api/register', (req, res) => {
     
     const passwordHash = bcrypt.hashSync(password, 10);
     
-    db.run(`INSERT INTO registrations (username, password_hash, full_name, email, reason) 
-            VALUES (?, ?, ?, ?, ?)`, 
-            [username, passwordHash, fullName, email, reason], 
+    db.run(`INSERT INTO registrations (username, password_hash, full_name, reason) 
+        VALUES (?, ?, ?, ?)`, 
+        [username, passwordHash, fullName, reason],
             function(err) {
                 if (err) {
                     if (err.message.includes('UNIQUE constraint failed')) {
@@ -1817,10 +1817,9 @@ app.post('/api/approve-registration/:id', (req, res) => {
         }
         
         // Benutzer mit Standard-Rang 'besucher' erstellen
-        db.run(`INSERT INTO users (username, password_hash, full_name, email, rank, role, status, approved_by, approved_at) 
-                VALUES (?, ?, ?, ?, 'besucher', 'user', 'approved', ?, CURRENT_TIMESTAMP)`,
-                [registration.username, registration.password_hash, registration.full_name, 
-                 registration.email, adminUsername], (err) => {
+        db.run(`INSERT INTO users (username, password_hash, full_name, rank, role, status, approved_by, approved_at) 
+        VALUES (?, ?, ?, 'besucher', 'user', 'approved', ?, CURRENT_TIMESTAMP)`,
+        [registration.username, registration.password_hash, registration.full_name, adminUsername],
                     if (err) {
                         return res.status(500).json({ error: 'Fehler beim Erstellen des Benutzers' });
                     }
@@ -1866,7 +1865,7 @@ app.post('/api/reject-registration/:id', (req, res) => {
 
 // Alle Benutzer abrufen
 app.get('/api/users', (req, res) => {
-    db.all('SELECT id, username, full_name, email, rank, role, status, created_at, approved_by, approved_at FROM users ORDER BY created_at DESC', (err, rows) => {
+    db.all('SELECT id, username, full_name, rank, role, status, created_at, approved_by, approved_at FROM users ORDER BY created_at DESC', (err, rows) => {
         if (err) {
             return res.status(500).json({ error: 'Datenbankfehler' });
         }
@@ -2089,8 +2088,8 @@ app.post('/api/create-document', (req, res) => {
     console.log('📝 /api/create-document aufgerufen');
     console.log('📋 Request Body:', req.body);
     
-    const { fullName, birthDate, address, phone, email, purpose, 
-            applicationDate, additional, createdBy } = req.body;
+    const { fullName, birthDate, address, phone, purpose, 
+        applicationDate, additional, createdBy } = req.body;
     
     // Validierung
     if (!fullName || !purpose || !createdBy) {
@@ -2101,11 +2100,11 @@ app.post('/api/create-document', (req, res) => {
     console.log('✅ Validierung erfolgreich, füge in Datenbank ein...');
     console.log('📊 SQL Parameter:', [fullName, birthDate, address, phone, email, purpose, applicationDate, additional, createdBy]);
     
-    db.run(`INSERT INTO documents (full_name, birth_date, address, phone, email, 
-            purpose, application_date, additional_info, created_by, document_type) 
-            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, 'manual')`,
-            [fullName, birthDate, address, phone, email, purpose, 
-             applicationDate, additional, createdBy],
+    db.run(`INSERT INTO documents (full_name, birth_date, address, phone, 
+        purpose, application_date, additional_info, created_by, document_type) 
+        VALUES (?, ?, ?, ?, ?, ?, ?, ?, 'manual')`,
+        [fullName, birthDate, address, phone, purpose, 
+         applicationDate, additional, createdBy],
             function(err) {
                 if (err) {
                     console.error('❌ Datenbank-Fehler beim Erstellen des Dokuments:', err);
@@ -2390,14 +2389,13 @@ app.post('/api/submit-template-response', async (req, res) => {
         let additionalInfo = '';
         
         // Extrahiere relevante Daten aus den Antworten
-        for (const [fieldId, value] of Object.entries(answers)) {
-            const lowerFieldId = fieldId.toLowerCase();
-            
-            if (lowerFieldId.includes('name') || fieldId === 'field-1') {
-                fullName = value;
-            } else if (lowerFieldId.includes('email') || lowerFieldId.includes('mail') || (typeof value === 'string' && value.includes('@'))) {
-                email = value;
-            } else if (lowerFieldId.includes('phone') || lowerFieldId.includes('tel')) {
+        // Extrahiere relevante Daten aus den Antworten
+for (const [fieldId, value] of Object.entries(answers)) {
+    const lowerFieldId = fieldId.toLowerCase();
+    
+    if (lowerFieldId.includes('name') || fieldId === 'field-1') {
+        fullName = value;
+    } else if (lowerFieldId.includes('phone') || lowerFieldId.includes('tel')) {
                 phone = value;
             } else if (lowerFieldId.includes('address') || lowerFieldId.includes('adresse')) {
                 address = value;
@@ -2415,13 +2413,13 @@ app.post('/api/submit-template-response', async (req, res) => {
         const applicationDate = new Date().toISOString().split('T')[0];
         
         const documentId = await new Promise((resolve, reject) => {
-            db.run(`INSERT INTO documents (full_name, birth_date, address, phone, email, 
-                    purpose, application_date, additional_info, created_by, template_response_id, 
-                    document_type, generated_docx_path, generated_filename, file_number) 
-                    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
-                    [fullName, birthDate, address, phone, email, purpose, 
-                     applicationDate, additionalInfo.trim(), submittedBy, responseId, 'template',
-                     generatedDocxPath, generatedFilename, generatedFileNumber],
+            db.run(`INSERT INTO documents (full_name, birth_date, address, phone, 
+        purpose, application_date, additional_info, created_by, template_response_id, 
+        document_type, generated_docx_path, generated_filename, file_number) 
+        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+        [fullName, birthDate, address, phone, purpose, 
+         applicationDate, additionalInfo.trim(), submittedBy, responseId, 'template',
+         generatedDocxPath, generatedFilename, generatedFileNumber],
                     function(err) {
                         if (err) reject(err);
                         else resolve(this.lastID);
@@ -2605,6 +2603,7 @@ process.on('SIGINT', () => {
     });
 
 });
+
 
 
 
