@@ -798,7 +798,6 @@ const docxInfo = doc.generated_docx_path ? `
                 </div>
                 <div class="document-details">
     ${creatorInfo}
-    <p><strong>E-Mail:</strong> ${doc.email}</p>
     ${doc.birth_date ? `<p><strong>Geburtsdatum:</strong> ${new Date(doc.birth_date).toLocaleDateString('de-DE')}</p>` : ''}
     ${doc.address ? `<p><strong>Adresse:</strong> ${doc.address}</p>` : ''}
     ${doc.phone ? `<p><strong>Telefon:</strong> ${doc.phone}</p>` : ''}
@@ -2101,7 +2100,7 @@ app.post('/api/create-document', (req, res) => {
     // ✅ KORRIGIERTES SQL - Parameter-Anzahl stimmt jetzt überein
     db.run(`INSERT INTO documents (full_name, birth_date, address, phone, 
         purpose, application_date, additional_info, created_by, document_type) 
-        VALUES (?, ?, ?, ?, ?, ?, ?, ?, 'manual')`,
+        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)`,
         [fullName, birthDate, address, phone, purpose, 
          applicationDate, additional, createdBy, 'manual'],
             //                                    ^^^^^^^^^ 
@@ -2604,6 +2603,7 @@ process.on('SIGINT', () => {
     });
 
 });
+
 
 
 
