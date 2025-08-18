@@ -1442,17 +1442,16 @@ db.serialize(() => {
 
     // Registrations Tabelle
     db.run(`CREATE TABLE IF NOT EXISTS registrations (
-        id INTEGER PRIMARY KEY AUTOINCREMENT,
-        username TEXT UNIQUE NOT NULL,
-        password_hash TEXT NOT NULL,
-        full_name TEXT NOT NULL,
-        email TEXT NOT NULL,
-        reason TEXT NOT NULL,
-        status TEXT DEFAULT 'pending',
-        created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
-        approved_by TEXT,
-        approved_at DATETIME
-    )`);
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    username TEXT UNIQUE NOT NULL,
+    password_hash TEXT NOT NULL,
+    full_name TEXT NOT NULL,
+    reason TEXT NOT NULL,
+    status TEXT DEFAULT 'pending',
+    created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+    approved_by TEXT,
+    approved_at DATETIME
+)`);
 
     // Documents Tabelle (erweitert mit template_response_id)
     db.run(`CREATE TABLE IF NOT EXISTS documents (
@@ -2603,6 +2602,7 @@ process.on('SIGINT', () => {
     });
 
 });
+
 
 
 
