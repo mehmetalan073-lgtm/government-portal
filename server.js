@@ -49,7 +49,7 @@ if (!fs.existsSync(generatedDir)) {
 }
 
  const app = express();
-  const PORT = process.env.PORT || 3000;
+ const PORT = process.env.PORT || 3000;
 
 // Middleware
 app.use(express.json());
@@ -124,18 +124,18 @@ async function generateDocxFromTemplate(templatePath, answers, outputFilename, s
             linebreaks: true,
         });
         
-        // Platzhalter durch Antworten ersetzen
-         const templateData = {};
+        // Erstelle Template-Daten Object
+        const templateData = {};
         
         // Konvertiere field-X zu readable names falls möglich
         Object.entries(answers).forEach(([key, value]) => {
-             cleanKey = key.replace('field-', '');
+             const cleanKey = key.replace('field-', '');
             templateData[cleanKey] = Array.isArray(value) ? value.join(', ') : value;
             templateData[key] = Array.isArray(value) ? value.join(', ') : value;
         });
         
         // Lade Benutzerdaten aus der Datenbank
-         const userData = await new Promise((resolve, reject) => {
+const userData = await new Promise((resolve, reject) => {
             db.get('SELECT * FROM users WHERE username = ?', [submittedBy], (err, user) => {
                 if (err) reject(err);
                 else resolve(user || {});
@@ -2603,6 +2603,7 @@ process.on('SIGINT', () => {
     });
 
 });
+
 
 
 
