@@ -2080,7 +2080,7 @@ app.get('/api/system-log', (req, res) => {
     });
 });
 
-// Dokument erstellen (mit erweiterten Debug-Informationen)
+// ✅ KORRIGIERTE Dokument erstellen Route (ersetzen Sie die bestehende)
 app.post('/api/create-document', (req, res) => {
     console.log('📝 /api/create-document aufgerufen');
     console.log('📋 Request Body:', req.body);
@@ -2088,25 +2088,29 @@ app.post('/api/create-document', (req, res) => {
     const { fullName, birthDate, address, phone, purpose, 
         applicationDate, additional, createdBy } = req.body;
     
-    // Validierung
+    // ✅ KORRIGIERTE Validierung (ohne email)
     if (!fullName || !purpose || !createdBy) {
-        console.error('❌ Validierung fehlgeschlagen:', { fullName, email, purpose, createdBy });
+        console.error('❌ Validierung fehlgeschlagen:', { fullName, purpose, createdBy });
         return res.status(400).json({ error: 'Name, Zweck und Ersteller sind erforderlich' });
     }
     
     console.log('✅ Validierung erfolgreich, füge in Datenbank ein...');
-    console.log('📊 SQL Parameter:', [fullName, birthDate, address, phone, email, purpose, applicationDate, additional, createdBy]);
+    // ✅ KORRIGIERTE Log-Zeile (ohne email)
+    console.log('📊 SQL Parameter:', [fullName, birthDate, address, phone, purpose, applicationDate, additional, createdBy]);
     
+    // ✅ KORRIGIERTES SQL - Parameter-Anzahl stimmt jetzt überein
     db.run(`INSERT INTO documents (full_name, birth_date, address, phone, 
         purpose, application_date, additional_info, created_by, document_type) 
         VALUES (?, ?, ?, ?, ?, ?, ?, ?, 'manual')`,
         [fullName, birthDate, address, phone, purpose, 
-         applicationDate, additional, createdBy],
+         applicationDate, additional, createdBy, 'manual'],
+            //                                    ^^^^^^^^^ 
+            //                        Jetzt 9 Parameter für 9 Felder
             function(err) {
                 if (err) {
                     console.error('❌ Datenbank-Fehler beim Erstellen des Dokuments:', err);
-                    console.error('❌ SQL Query war:', `INSERT INTO documents (full_name, birth_date, address, phone, email, purpose, application_date, additional_info, created_by, document_type) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, 'manual')`);
-                    console.error('❌ Parameter waren:', [fullName, birthDate, address, phone, email, purpose, applicationDate, additional, createdBy]);
+                    console.error('❌ SQL Query war:', 'INSERT INTO documents...');
+                    console.error('❌ Parameter waren:', [fullName, birthDate, address, phone, purpose, applicationDate, additional, createdBy, 'manual']);
                     return res.status(500).json({ error: 'Fehler beim Speichern: ' + err.message });
                 }
                 
@@ -2600,6 +2604,7 @@ process.on('SIGINT', () => {
     });
 
 });
+
 
 
 
