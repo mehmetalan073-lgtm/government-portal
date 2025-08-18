@@ -1946,7 +1946,7 @@ setTimeout(() => {
 
             // Validation
             if (!documentData.fullName || !documentData.purpose) {
-                const errorMsg = 'Name und Zweck sind erforderlich.');
+                const errorMsg = ('Name und Zweck sind erforderlich.');
                 console.error('❌ Validierung fehlgeschlagen:', errorMsg);
                 showError('documentCreateError', errorMsg);
                 return;
@@ -4017,6 +4017,7 @@ async function saveTemplateChanges(templateId) {
     </script>
 </body>
 </html>
+
 
 
 
