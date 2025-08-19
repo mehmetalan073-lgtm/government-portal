@@ -2575,7 +2575,120 @@ app.get('/api/stats', (req, res) => {
         }
     });
 });
+// ⚡ TEMPORÄRER SCHEMA-FIX ENDPOINT
+// Füge das am Ende von server.js hinzu, VOR der app.listen() Zeile
 
+app.get('/api/fix-database-schema', (req, res) => {
+    console.log('🔧 Repariere Datenbank-Schema...');
+    
+    // Schritt 1: Prüfe aktuelle Tabellen-Struktur
+    db.all("PRAGMA table_info(users)", (err, userColumns) => {
+        if (err) {
+            console.error('❌ Users Tabelle Fehler:', err);
+            return res.json({ error: 'Users Tabelle Fehler: ' + err.message });
+        }
+        
+        db.all("PRAGMA table_info(documents)", (err2, docColumns) => {
+            if (err2) {
+                console.error('❌ Documents Tabelle Fehler:', err2);
+                return res.json({ error: 'Documents Tabelle Fehler: ' + err2.message });
+            }
+            
+            const hasUserEmail = userColumns.find(col => col.name === 'email');
+            const hasDocEmail = docColumns.find(col => col.name === 'email');
+            
+            let results = {
+                status: 'Schema-Check durchgeführt',
+                before: {
+                    users_has_email: !!hasUserEmail,
+                    documents_has_email: !!hasDocEmail,
+                    users_columns: userColumns.map(c => c.name),
+                    documents_columns: docColumns.map(c => c.name),
+                    total_users_columns: userColumns.length,
+                    total_documents_columns: docColumns.length
+                },
+                fixes_applied: [],
+                success: true
+            };
+            
+            console.log('📊 Tabellen-Analyse:', {
+                users_has_email: !!hasUserEmail,
+                documents_has_email: !!hasDocEmail
+            });
+            
+            // Schritt 2: Entferne email-Spalten falls vorhanden
+            let fixesNeeded = 0;
+            let fixesCompleted = 0;
+            
+            if (hasUserEmail) {
+                fixesNeeded++;
+                console.log('🔧 Entferne email-Spalte aus users Tabelle...');
+                db.run("ALTER TABLE users DROP COLUMN email", (err) => {
+                    if (err) {
+                        console.error('❌ Users email drop failed:', err);
+                        results.fixes_applied.push('❌ Users email: ' + err.message);
+                    } else {
+                        console.log('✅ Users email-Spalte erfolgreich entfernt');
+                        results.fixes_applied.push('✅ Users email-Spalte entfernt');
+                    }
+                    fixesCompleted++;
+                    checkIfDone();
+                });
+            } else {
+                results.fixes_applied.push('ℹ️ Users Tabelle hat keine email-Spalte');
+                console.log('ℹ️ Users Tabelle hat keine email-Spalte');
+            }
+            
+            if (hasDocEmail) {
+                fixesNeeded++;
+                console.log('🔧 Entferne email-Spalte aus documents Tabelle...');
+                db.run("ALTER TABLE documents DROP COLUMN email", (err) => {
+                    if (err) {
+                        console.error('❌ Documents email drop failed:', err);
+                        results.fixes_applied.push('❌ Documents email: ' + err.message);
+                    } else {
+                        console.log('✅ Documents email-Spalte erfolgreich entfernt');
+                        results.fixes_applied.push('✅ Documents email-Spalte entfernt');
+                    }
+                    fixesCompleted++;
+                    checkIfDone();
+                });
+            } else {
+                results.fixes_applied.push('ℹ️ Documents Tabelle hat keine email-Spalte');
+                console.log('ℹ️ Documents Tabelle hat keine email-Spalte');
+            }
+            
+            // Schritt 3: Prüfe Ergebnis nach Fixes
+            function checkIfDone() {
+                if (fixesCompleted >= fixesNeeded) {
+                    // Alle Fixes sind fertig, prüfe Ergebnis
+                    setTimeout(() => {
+                        db.all("PRAGMA table_info(users)", (err3, newUserCols) => {
+                            db.all("PRAGMA table_info(documents)", (err4, newDocCols) => {
+                                results.after = {
+                                    users_columns: newUserCols ? newUserCols.map(c => c.name) : [],
+                                    documents_columns: newDocCols ? newDocCols.map(c => c.name) : [],
+                                    users_has_email: newUserCols ? newUserCols.some(c => c.name === 'email') : false,
+                                    documents_has_email: newDocCols ? newDocCols.some(c => c.name === 'email') : false
+                                };
+                                
+                                console.log('🎉 Schema-Fix abgeschlossen:', results);
+                                res.json(results);
+                            });
+                        });
+                    }, 500);
+                }
+            }
+            
+            // Falls keine Fixes nötig waren, sofort antworten
+            if (fixesNeeded === 0) {
+                results.after = results.before;
+                console.log('ℹ️ Keine Schema-Fixes nötig');
+                res.json(results);
+            }
+        });
+    });
+});
 // Server starten
 app.listen(PORT, '0.0.0.0', () => {
     console.log(`🏛️ Regierungspanel v23-FIXED Backend läuft auf http://localhost:${PORT}`);
@@ -2603,6 +2716,7 @@ process.on('SIGINT', () => {
     });
 
 });
+
 
 
 
