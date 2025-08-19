@@ -2689,6 +2689,49 @@ app.get('/api/fix-database-schema', (req, res) => {
         });
     });
 });
+// In server.js hinzufügen:
+
+// Database Admin Interface
+app.get('/admin/database', (req, res) => {
+    res.send(`
+        <html>
+        <head><title>Database Admin</title></head>
+        <body style="font-family: Arial; padding: 20px;">
+            <h1>🗃️ Database Admin Interface</h1>
+            <form action="/admin/sql" method="post">
+                <label>SQL Query:</label><br>
+                <textarea name="query" rows="5" cols="80" placeholder="SELECT * FROM users;"></textarea><br><br>
+                <button type="submit">Execute Query</button>
+            </form>
+        </body>
+        </html>
+    `);
+});
+
+// SQL Query Executor
+app.post('/admin/sql', express.urlencoded({ extended: true }), (req, res) => {
+    const { query } = req.body;
+    
+    if (query.toLowerCase().startsWith('select')) {
+        // Read-only queries
+        db.all(query, (err, rows) => {
+            if (err) {
+                res.json({ error: err.message });
+            } else {
+                res.json({ success: true, data: rows });
+            }
+        });
+    } else {
+        // Write queries (ALTER, UPDATE, DELETE, etc.)
+        db.run(query, function(err) {
+            if (err) {
+                res.json({ error: err.message });
+            } else {
+                res.json({ success: true, changes: this.changes });
+            }
+        });
+    }
+});
 // Server starten
 app.listen(PORT, '0.0.0.0', () => {
     console.log(`🏛️ Regierungspanel v23-FIXED Backend läuft auf http://localhost:${PORT}`);
@@ -2716,6 +2759,7 @@ process.on('SIGINT', () => {
     });
 
 });
+
 
 
 
