@@ -2758,28 +2758,39 @@ function closeDocxPreviewModal() {
 }
 
         async function loadGdocsTemplates() {
-            console.log('📝 loadGdocsTemplates() gestartet');
-            
-            const container = document.getElementById('gdocsTemplatesList');
-            if (!container) {
-                console.error('❌ gdocsTemplatesList Container nicht gefunden!');
-                return;
-            }
-            
-            console.log('📦 G-Docs Container gefunden:', container);
-            container.innerHTML = '<div class="loading">Lade G-Docs Vorlagen...</div>';
-            
-            try {
-                console.log('🔗 API-Aufruf: /gdocs-templates');
-                const templates = await apiCall('/gdocs-templates');
-                console.log('📝 G-Docs Templates erhalten:', templates);
-                updateGdocsTemplatesList(templates);
-            } catch (error) {
-                console.error('❌ Fehler beim Laden der G-Docs Templates:', error);
-                container.innerHTML = `<p style="color: red;">Fehler beim Laden: ${error.message}</p>`;
+    console.log('📝 loadGdocsTemplates() gestartet');
+    
+    const container = document.getElementById('gdocsTemplatesList');
+    if (!container) {
+        console.error('❌ gdocsTemplatesList Container nicht gefunden!');
+        return;
+    }
+    
+    console.log('📦 G-Docs Container gefunden:', container);
+    container.innerHTML = '<div class="loading">Lade G-Docs Vorlagen...</div>';
+    
+    try {
+        console.log('🔗 API-Aufruf: /gdocs-templates');
+        const templates = await apiCall('/gdocs-templates');
+        console.log('📝 G-Docs Templates erhalten:', templates);
+        console.log('🔄 Rufe updateGdocsTemplatesList auf...');
+        
+        // DEBUG: Prüfe ob updateGdocsTemplatesList existiert
+        if (typeof updateGdocsTemplatesList === 'function') {
+            updateGdocsTemplatesList(templates);
+            console.log('✅ updateGdocsTemplatesList aufgerufen');
+        } else {
+            console.error('❌ updateGdocsTemplatesList Funktion nicht gefunden!');
+            // FALLBACK: Direkt setzen
+            if (templates.length === 0) {
+                container.innerHTML = '<p style="text-align: center; color: #666; padding: 20px;">Noch keine G-Docs Vorlagen erstellt</p>';
             }
         }
-
+    } catch (error) {
+        console.error('❌ Fehler beim Laden der G-Docs Templates:', error);
+        container.innerHTML = `<p style="color: red;">Fehler beim Laden: ${error.message}</p>`;
+    }
+}
         function updateGdocsTemplatesList(templates) {
             const container = document.getElementById('gdocsTemplatesList');
             if (!container) return;
@@ -2842,36 +2853,48 @@ function closeDocxPreviewModal() {
 }
 
         async function loadAvailableTemplates() {
-            console.log('📋 loadAvailableTemplates() gestartet');
-            
-            const container = document.getElementById('availableTemplatesList');
-            if (!container) {
-                console.error('❌ availableTemplatesList Container nicht gefunden!');
-                return;
-            }
-            
-            console.log('📦 Container gefunden:', container);
-            container.innerHTML = '<div class="loading">Lade verfügbare Vorlagen...</div>';
-            
-            if (!currentSession.user) {
-                console.error('❌ Kein Benutzer angemeldet!');
-                container.innerHTML = '<p style="color: red;">Fehler: Kein Benutzer angemeldet</p>';
-                return;
-            }
-            
-            const userRank = currentSession.user.rank || 'user';
-            console.log('👤 Benutzer-Rang für Templates:', userRank);
-            
-            try {
-                console.log('🔗 API-Aufruf:', `/available-templates/${userRank}`);
-                const templates = await apiCall(`/available-templates/${userRank}`);
-                console.log('📋 Templates erhalten:', templates);
-                updateAvailableTemplatesList(templates);
-            } catch (error) {
-                console.error('❌ Fehler beim Laden der Templates:', error);
-                container.innerHTML = `<p style="color: red;">Fehler beim Laden: ${error.message}</p>`;
+    console.log('📋 loadAvailableTemplates() gestartet');
+    
+    const container = document.getElementById('availableTemplatesList');
+    if (!container) {
+        console.error('❌ availableTemplatesList Container nicht gefunden!');
+        return;
+    }
+    
+    console.log('📦 Container gefunden:', container);
+    container.innerHTML = '<div class="loading">Lade verfügbare Vorlagen...</div>';
+    
+    if (!currentSession.user) {
+        console.error('❌ Kein Benutzer angemeldet!');
+        container.innerHTML = '<p style="color: red;">Fehler: Kein Benutzer angemeldet</p>';
+        return;
+    }
+    
+    const userRank = currentSession.user.rank || 'user';
+    console.log('👤 Benutzer-Rang für Templates:', userRank);
+    
+    try {
+        console.log('🔗 API-Aufruf:', `/available-templates/${userRank}`);
+        const templates = await apiCall(`/available-templates/${userRank}`);
+        console.log('📋 Templates erhalten:', templates);
+        console.log('🔄 Rufe updateAvailableTemplatesList auf...');
+        
+        // DEBUG: Prüfe ob updateAvailableTemplatesList existiert
+        if (typeof updateAvailableTemplatesList === 'function') {
+            updateAvailableTemplatesList(templates);
+            console.log('✅ updateAvailableTemplatesList aufgerufen');
+        } else {
+            console.error('❌ updateAvailableTemplatesList Funktion nicht gefunden!');
+            // FALLBACK: Direkt setzen
+            if (templates.length === 0) {
+                container.innerHTML = '<p style="text-align: center; color: #666; padding: 40px;">Keine Vorlagen für Ihren Rang verfügbar</p>';
             }
         }
+    } catch (error) {
+        console.error('❌ Fehler beim Laden der Templates:', error);
+        container.innerHTML = `<p style="color: red;">Fehler beim Laden: ${error.message}</p>`;
+    }
+}
 
         function updateAvailableTemplatesList(templates) {
             const container = document.getElementById('availableTemplatesList');
@@ -4129,6 +4152,7 @@ async function saveTemplateChanges(templateId) {
     </script>
 </body>
 </html>
+
 
 
 
