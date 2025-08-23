@@ -1035,10 +1035,19 @@ function onDocumentsViewChange() {
     
     // Template-Filter nur bei "Meine Dokumente" anzeigen
     if (viewMode === 'my') {
-        showTemplateFilter();
-        loadAvailableTemplatesForFilter();
+        const container = document.getElementById('templateFilterContainer');
+        if (container) {
+            container.style.display = 'flex';
+            // Lade Templates für Filter
+            setTimeout(() => {
+                loadAvailableTemplatesForFilter();
+            }, 100);
+        }
     } else {
-        hideTemplateFilter();
+        const container = document.getElementById('templateFilterContainer');
+        if (container) {
+            container.style.display = 'none';
+        }
     }
     
     // Info-Text aktualisieren
@@ -4123,6 +4132,7 @@ async function saveTemplateChanges(templateId) {
     </script>
 </body>
 </html>
+
 
 
 
