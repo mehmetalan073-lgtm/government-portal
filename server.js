@@ -1,6 +1,6 @@
 // server.js v23 - FIXES: Dokument-Löschung + Fragebogen als Dokumente
 const express = require('express');
-const sqlite3 = require('sqlite3').verbose();
+const { Pool } = require('pg');
 const bcrypt = require('bcrypt');
 const path = require('path');
 const cors = require('cors');
@@ -23,6 +23,11 @@ const storage = multer.diskStorage({
     }
 });
 
+const pool = new Pool({
+    connectionString: process.env.DATABASE_URL,
+    ssl: process.env.NODE_ENV === 'production' ? { rejectUnauthorized: false } : false
+});
+
 const upload = multer({ 
     storage: storage,
     fileFilter: function (req, file, cb) {
@@ -36,6 +41,16 @@ const upload = multer({
         fileSize: 10 * 1024 * 1024 // 10MB Limit
     }
 });
+
+pool.connect()
+    .then(client => {
+        console.log('✅ PostgreSQL connected successfully');
+        client.release();
+    })
+    .catch(err => {
+        console.error('❌ PostgreSQL connection failed:', err);
+        process.exit(1);
+    });
 
 // Neue Ims für DOCX-Processing
 const Docxtemplater = require('docxtemplater');
@@ -62,9 +77,6 @@ app.use(express.static('public'));
 app.get('/', (req, res) => {
     res.sendFile(path.join(__dirname, 'index.html'));
 });
-
-// SQLite Datenbank initialisieren
- const db = new sqlite3.Database('government_portal.db');
 
 // Log-Eintrag erstellen (Hilfsfunktion)
 function createLogEntry(action, performedBy, userRank, details, targetUser = null, ipAddress = null) {
@@ -2861,6 +2873,7 @@ process.on('SIGINT', () => {
     });
 
 });
+
 
 
 
