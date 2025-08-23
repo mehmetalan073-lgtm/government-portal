@@ -1070,22 +1070,6 @@ function onTemplateFilterChange() {
     loadUserDocuments();
 }
 
-function showTemplateFilter() {
-    const container = document.getElementById('templateFilterContainer');
-    if (container) {
-        container.style.display = 'flex';
-        console.log('📋 Template-Filter angezeigt');
-    }
-}
-
-function hideTemplateFilter() {
-    const container = document.getElementById('templateFilterContainer');
-    if (container) {
-        container.style.display = 'none';
-        console.log('📋 Template-Filter versteckt');
-    }
-}
-
 async function loadAvailableTemplatesForFilter() {
     try {
         const templates = await apiCall('/available-templates-for-filter');
@@ -4132,6 +4116,7 @@ async function saveTemplateChanges(templateId) {
     </script>
 </body>
 </html>
+
 
 
 
