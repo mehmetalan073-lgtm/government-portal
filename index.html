@@ -512,7 +512,7 @@ body.dark .document-item[style*="border-left: 4px solid #17a2b8"] {
                 <button onclick="attemptLogin()">Anmelden</button>
                 <button class="btn-secondary" onclick="showRegister()">Zugangsantrag stellen</button>
                 <div id="loginError" class="error"></div>
-                <div class="db-info">📊 <strong>SQLite Datenbank aktiv:</strong> government_portal.db<br>Alle Daten werden permanent gespeichert</div>
+                <div class="db-info">📊 <strong>Datenbank aktiv und unter Verwaltung von:</strong>Operator-Echo<br>Alle Daten werden permanent gespeichert</div>
             </div>
 
             <!-- Register Screen -->
@@ -522,7 +522,7 @@ body.dark .document-item[style*="border-left: 4px solid #17a2b8"] {
                     <h1>Zugangsantrag</h1>
                     <div class="subtitle">Antrag auf Systemzugang</div>
                 </div>
-                <div class="system-info"><strong>Wichtiger Hinweis:</strong><br>Ihr Antrag wird in der SQL-Datenbank gespeichert und von einem Administrator geprüft.</div>
+                <div class="system-info"><strong>Wichtiger Hinweis:</strong><br>Ihr Antrag wird in der Datenbank gespeichert und von einem Vorgesetzten geprüft.</div>
                 <div class="form-group"><label>Gewünschter Benutzername:</label><input type="text" id="newUsername" placeholder="Eindeutige Benutzerkennung" maxlength="20"></div>
                 <div class="form-group"><label>Vollständiger Name:</label><input type="text" id="fullName" placeholder="Vor- und Nachname" maxlength="50"></div>
                 <div class="form-group"><label>Sicherheitskennwort:</label><input type="password" id="newPassword" placeholder="Mindestens 6 Zeichen" maxlength="50"></div>
@@ -4359,6 +4359,7 @@ async function saveTemplateChanges(templateId) {
     </script>
 </body>
 </html>
+
 
 
 
