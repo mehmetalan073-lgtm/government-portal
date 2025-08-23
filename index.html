@@ -1880,55 +1880,68 @@ function initializeDocumentsDropdown() {
         let documentsModalReturnScreen = null;
 
         function openDocumentsModal() {
-            console.log('🔍 Dokumente-Modal wird geöffnet...');
-            
-            // Aktuelle Screen merken für Rückkehr
-            const currentScreen = document.querySelector('.screen.active');
-            if (currentScreen) {
-                documentsModalReturnScreen = currentScreen.id;
-                console.log('📍 Aktuelle Screen:', currentScreen.id);
-            }
-            
-            const modal = document.getElementById('documentsModal');
-            console.log('🎯 Modal gefunden:', modal ? 'Ja' : 'Nein');
-            
-            if (modal) {
-                modal.classList.add('active');
-                console.log('✅ Modal aktiviert');
-                
-                // G-Docs Tab nur für Admins anzeigen
-                const gdocsTabButton = document.getElementById('gdocsTabButton');
-                if (gdocsTabButton && currentSession.user) {
-                    const hasAdminRights = hasFullAccess(currentSession.user.rank || 'user');
-                    gdocsTabButton.style.display = hasAdminRights ? 'block' : 'none';
-                    console.log('📝 G-Docs Tab für Admin:', hasAdminRights ? 'Sichtbar' : 'Versteckt');
-                    console.log('👤 Benutzer-Rang:', currentSession.user.rank, '| Admin-Rechte:', hasAdminRights);
-                } else {
-                    console.warn('⚠️ G-Docs Tab Button nicht gefunden oder kein Benutzer angemeldet');
-                }
-                
-                // Auto-fill user data
-                console.log('📝 Fülle Benutzerdaten aus...');
-                prefillUserData();
-                // Initialisiere Dropdown
-setTimeout(() => {
-    initializeDocumentsDropdown();
-}, 100);
-                
-                // Load user documents
-                console.log('📄 Lade Benutzerdokumente...');
-                loadUserDocuments();
-                
-                // Load available templates
-                console.log('📋 Lade verfügbare Vorlagen...');
-                loadAvailableTemplates();
-                
-                console.log('🎉 Modal-Setup abgeschlossen!');
-            } else {
-                console.error('❌ Modal nicht gefunden!');
-                alert('Fehler: Dokumente-Modal nicht gefunden!');
-            }
+    console.log('🔍 Dokumente-Modal wird geöffnet...');
+    
+    // Aktuelle Screen merken für Rückkehr
+    const currentScreen = document.querySelector('.screen.active');
+    if (currentScreen) {
+        documentsModalReturnScreen = currentScreen.id;
+        console.log('📍 Aktuelle Screen:', currentScreen.id);
+    }
+    
+    const modal = document.getElementById('documentsModal');
+    console.log('🎯 Modal gefunden:', modal ? 'Ja' : 'Nein');
+    
+    if (modal) {
+        modal.classList.add('active');
+        console.log('✅ Modal aktiviert');
+        
+        // G-Docs Tab nur für Admins anzeigen
+        const gdocsTabButton = document.getElementById('gdocsTabButton');
+        if (gdocsTabButton && currentSession.user) {
+            const hasAdminRights = hasFullAccess(currentSession.user.rank || 'user');
+            gdocsTabButton.style.display = hasAdminRights ? 'block' : 'none';
+            console.log('📝 G-Docs Tab für Admin:', hasAdminRights ? 'Sichtbar' : 'Versteckt');
+            console.log('👤 Benutzer-Rang:', currentSession.user.rank, '| Admin-Rechte:', hasAdminRights);
+        } else {
+            console.warn('⚠️ G-Docs Tab Button nicht gefunden oder kein Benutzer angemeldet');
         }
+        
+        // Auto-fill user data
+        console.log('📝 Fülle Benutzerdaten aus...');
+        prefillUserData();
+        
+        // Initialisiere Dropdown
+        setTimeout(() => {
+            initializeDocumentsDropdown();
+        }, 100);
+        
+        // Load initial content based on active tab
+        const activeTab = document.querySelector('.documents-tab.active');
+        if (activeTab) {
+            const tabText = activeTab.textContent.trim();
+            console.log('🔍 Aktiver Tab:', tabText);
+            
+            if (tabText.includes('Meine Dokumente')) {
+                loadUserDocuments();
+            } else if (tabText.includes('G-Docs Vorlagen')) {
+                loadGdocsTemplates();
+            } else if (tabText.includes('Fragebögen')) {
+                loadAvailableTemplates();
+            } else {
+                // Default: Create Tab ist aktiv, lade nichts
+                console.log('ℹ️ Create Tab ist aktiv, lade keine Daten');
+            }
+        } else {
+            console.log('⚠️ Kein aktiver Tab gefunden');
+        }
+        
+        console.log('🎉 Modal-Setup abgeschlossen!');
+    } else {
+        console.error('❌ Modal nicht gefunden!');
+        alert('Fehler: Dokumente-Modal nicht gefunden!');
+    }
+}
 
         function closeDocumentsModal() {
             const modal = document.getElementById('documentsModal');
@@ -4116,6 +4129,7 @@ async function saveTemplateChanges(templateId) {
     </script>
 </body>
 </html>
+
 
 
 
