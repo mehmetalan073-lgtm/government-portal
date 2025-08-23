@@ -249,6 +249,30 @@ body.dark #documentsViewInfo {
     color: #c0c0c0;
     border: 1px solid #4a4a4a;
 }
+        /* Template-Filter Dark Mode */
+body.dark #templateFilterContainer select {
+    background: #3a3a3a;
+    border-color: #4a4a4a;
+    color: #e0e0e0;
+}
+
+body.dark #templateFilterContainer label {
+    color: #e0e0e0;
+}
+
+/* Responsive Design für Filter */
+@media (max-width: 768px) {
+    #viewDocumentsTab > div:first-child > div:last-child {
+        width: 100%;
+        justify-content: flex-start;
+        flex-wrap: wrap;
+    }
+    
+    #documentsViewDropdown,
+    #templateFilterDropdown {
+        min-width: 140px;
+    }
+}
 
 /* Dokument-Item Styles für unterschiedliche Ersteller /
 .document-item[style*="border-left: 4px solid #17a2b8"] {
@@ -1009,11 +1033,80 @@ function onDocumentsViewChange() {
     const viewMode = dropdown.value;
     console.log('📋 Neuer View-Modus:', viewMode);
     
+    // Template-Filter nur bei "Meine Dokumente" anzeigen
+    if (viewMode === 'my') {
+        showTemplateFilter();
+        loadAvailableTemplatesForFilter();
+    } else {
+        hideTemplateFilter();
+    }
+    
     // Info-Text aktualisieren
     updateDocumentsViewInfo(viewMode);
     
     // Dokumente neu laden
     loadUserDocuments();
+}
+        // Template-Filter Funktionen
+function onTemplateFilterChange() {
+    console.log('🔄 Template-Filter wird geändert...');
+    
+    const templateFilter = document.getElementById('templateFilterDropdown');
+    if (!templateFilter) return;
+    
+    const filterValue = templateFilter.value;
+    console.log('📋 Neuer Template-Filter:', filterValue);
+    
+    // Dokumente neu laden mit Filter
+    loadUserDocuments();
+}
+
+function showTemplateFilter() {
+    const container = document.getElementById('templateFilterContainer');
+    if (container) {
+        container.style.display = 'flex';
+        console.log('📋 Template-Filter angezeigt');
+    }
+}
+
+function hideTemplateFilter() {
+    const container = document.getElementById('templateFilterContainer');
+    if (container) {
+        container.style.display = 'none';
+        console.log('📋 Template-Filter versteckt');
+    }
+}
+
+async function loadAvailableTemplatesForFilter() {
+    try {
+        const templates = await apiCall('/available-templates-for-filter');
+        updateTemplateFilterOptions(templates);
+    } catch (error) {
+        console.warn('⚠️ Konnte Template-Filter nicht laden:', error);
+    }
+}
+
+function updateTemplateFilterOptions(templates) {
+    const dropdown = document.getElementById('templateFilterDropdown');
+    if (!dropdown) return;
+    
+    // Behalte die Standard-Optionen
+    const standardOptions = `
+        <option value="all">📋 Alle Typen</option>
+        <option value="manual">📝 Manuell erstellt</option>
+        <option value="templates">🗂️ Alle Fragebögen</option>
+    `;
+    
+    // Füge spezifische Template-Optionen hinzu
+    let templateOptions = '';
+    if (templates && templates.length > 0) {
+        templateOptions = templates.map(template => 
+            `<option value="template_${template.id}">📋 ${template.name}</option>`
+        ).join('');
+    }
+    
+    dropdown.innerHTML = standardOptions + templateOptions;
+    console.log('📋 Template-Filter Optionen aktualisiert:', templates.length, 'Templates');
 }
 
 function updateDocumentsViewInfo(viewMode) {
@@ -4030,6 +4123,7 @@ async function saveTemplateChanges(templateId) {
     </script>
 </body>
 </html>
+
 
 
 
