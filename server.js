@@ -89,6 +89,141 @@ async function createLogEntry(action, performedBy, userRank, details, targetUser
         console.error('Log Fehler:', err);
     }
 }
+
+// ✅ HINZUFÜGEN - PostgreSQL Initialisierung:
+async function initializeDatabase() {
+    console.log('🔧 Initializing PostgreSQL tables...');
+    
+    try {
+        // Users table
+        await pool.query(`
+            CREATE TABLE IF NOT EXISTS users (
+                id SERIAL PRIMARY KEY,
+                username VARCHAR(255) UNIQUE NOT NULL,
+                password_hash VARCHAR(255) NOT NULL,
+                full_name VARCHAR(255) NOT NULL,
+                rank VARCHAR(50) DEFAULT 'user',
+                role VARCHAR(50) DEFAULT 'user',
+                status VARCHAR(50) DEFAULT 'approved',
+                dark_mode INTEGER DEFAULT 0,
+                created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+                approved_by VARCHAR(255),
+                approved_at TIMESTAMP
+            )
+        `);
+        
+        // Registrations table
+        await pool.query(`
+            CREATE TABLE IF NOT EXISTS registrations (
+                id SERIAL PRIMARY KEY,
+                username VARCHAR(255) UNIQUE NOT NULL,
+                password_hash VARCHAR(255) NOT NULL,
+                full_name VARCHAR(255) NOT NULL,
+                reason TEXT NOT NULL,
+                status VARCHAR(50) DEFAULT 'pending',
+                created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+                approved_by VARCHAR(255),
+                approved_at TIMESTAMP
+            )
+        `);
+        
+        // Documents table
+        await pool.query(`
+            CREATE TABLE IF NOT EXISTS documents (
+                id SERIAL PRIMARY KEY,
+                full_name VARCHAR(255) NOT NULL,
+                birth_date VARCHAR(255),
+                address TEXT,
+                phone VARCHAR(255),
+                purpose TEXT,
+                application_date VARCHAR(255),
+                additional_info TEXT,
+                created_by VARCHAR(255) NOT NULL,
+                template_response_id INTEGER,
+                document_type VARCHAR(50) DEFAULT 'manual',
+                generated_docx_path TEXT,
+                generated_filename VARCHAR(255),
+                file_number VARCHAR(255),
+                preview_html TEXT,
+                created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+            )
+        `);
+        
+        // Username change requests
+        await pool.query(`
+            CREATE TABLE IF NOT EXISTS username_change_requests (
+                id SERIAL PRIMARY KEY,
+                current_username VARCHAR(255) NOT NULL,
+                new_username VARCHAR(255) NOT NULL,
+                reason TEXT NOT NULL,
+                status VARCHAR(50) DEFAULT 'pending',
+                created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+                approved_by VARCHAR(255),
+                approved_at TIMESTAMP
+            )
+        `);
+        
+        // System log
+        await pool.query(`
+            CREATE TABLE IF NOT EXISTS system_log (
+                id SERIAL PRIMARY KEY,
+                action VARCHAR(255) NOT NULL,
+                performed_by VARCHAR(255) NOT NULL,
+                user_rank VARCHAR(50),
+                details TEXT,
+                target_user VARCHAR(255),
+                ip_address VARCHAR(255),
+                session_id VARCHAR(255),
+                created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+            )
+        `);
+        
+        // G-Docs templates
+        await pool.query(`
+            CREATE TABLE IF NOT EXISTS gdocs_templates (
+                id SERIAL PRIMARY KEY,
+                name VARCHAR(255) NOT NULL,
+                description TEXT,
+                file_path TEXT NOT NULL,
+                original_filename VARCHAR(255),
+                available_ranks TEXT NOT NULL,
+                questions TEXT,
+                created_by VARCHAR(255) NOT NULL,
+                created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+            )
+        `);
+        
+        // Template responses
+        await pool.query(`
+            CREATE TABLE IF NOT EXISTS template_responses (
+                id SERIAL PRIMARY KEY,
+                template_id INTEGER NOT NULL,
+                answers TEXT NOT NULL,
+                submitted_by VARCHAR(255) NOT NULL,
+                created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+            )
+        `);
+        
+        console.log('✅ All PostgreSQL tables created');
+        
+        // Create admin user
+        const adminPassword = bcrypt.hashSync('memo', 10);
+        const adminResult = await pool.query('SELECT * FROM users WHERE username = $1', ['admin']);
+        
+        if (adminResult.rows.length === 0) {
+            await pool.query(`
+                INSERT INTO users (username, password_hash, full_name, rank, role, status) 
+                VALUES ($1, $2, $3, $4, $5, $6)
+            `, ['admin', adminPassword, 'Systemadministrator', 'admin', 'admin', 'approved']);
+            console.log('✅ Admin user created');
+        }
+        
+    } catch (error) {
+        console.error('❌ Database initialization failed:', error);
+        process.exit(1);
+    }
+}
+
 // Vereinfachte Funktion: Nächste B-Nummer generieren
 async function getNextFileNumber() {
     return new Promise((resolve, reject) => {
@@ -2575,22 +2710,3 @@ process.on('SIGINT', () => {
     });
 
 });
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
