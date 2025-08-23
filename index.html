@@ -596,14 +596,27 @@ body.dark .document-item[style*="border-left: 4px solid #17a2b8"] {
 <div id="viewDocumentsTab" class="document-tab-content" style="display: none;">
     <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px;">
         <h3>📄 Dokumente anzeigen</h3>
-        <div style="display: flex; align-items: center; gap: 10px;">
-            <label for="documentsViewDropdown" style="font-size: 14px; color: #666; margin: 0;">Ansicht:</label>
-            <select id="documentsViewDropdown" onchange="onDocumentsViewChange()" style="padding: 8px 12px; border: 2px solid #e0e0e0; border-radius: 4px; font-size: 14px; background: white; min-width: 150px;">
-                <option value="my">📁 Meine Dokumente</option>
-                <option value="all">🗂️ Alle Dokumente</option>
-            </select>
-        </div>
+        <div style="display: flex; align-items: center; gap: 15px; flex-wrap: wrap;">
+    <!-- Ansicht-Dropdown (Meine/Alle) -->
+    <div style="display: flex; align-items: center; gap: 8px;">
+        <label for="documentsViewDropdown" style="font-size: 14px; color: #666; margin: 0; white-space: nowrap;">Ansicht:</label>
+        <select id="documentsViewDropdown" onchange="onDocumentsViewChange()" style="padding: 8px 12px; border: 2px solid #e0e0e0; border-radius: 4px; font-size: 14px; background: white; min-width: 150px;">
+            <option value="my">📁 Meine Dokumente</option>
+            <option value="all">🗂️ Alle Dokumente</option>
+        </select>
     </div>
+    
+    <!-- Template-Filter Dropdown -->
+    <div id="templateFilterContainer" style="display: none; align-items: center; gap: 8px;">
+        <label for="templateFilterDropdown" style="font-size: 14px; color: #666; margin: 0; white-space: nowrap;">Fragebogen:</label>
+        <select id="templateFilterDropdown" onchange="onTemplateFilterChange()" style="padding: 8px 12px; border: 2px solid #e0e0e0; border-radius: 4px; font-size: 14px; background: white; min-width: 180px;">
+            <option value="all">📋 Alle Typen</option>
+            <option value="manual">📝 Manuell erstellt</option>
+            <option value="templates">🗂️ Alle Fragebögen</option>
+            <!-- Dynamische Optionen werden hier eingefügt -->
+        </select>
+    </div>
+</div>
     
     <div style="margin-bottom: 15px; padding: 10px; background: #f8f9fa; border-radius: 6px; font-size: 13px; color: #666;">
         <span id="documentsViewInfo">
@@ -4017,6 +4030,7 @@ async function saveTemplateChanges(templateId) {
     </script>
 </body>
 </html>
+
 
 
 
