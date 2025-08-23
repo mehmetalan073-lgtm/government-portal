@@ -2306,20 +2306,6 @@ app.get('/api/available-templates/:rank', (req, res) => {
         res.json(rows || []);
     });
 });
-// Templates für Filter-Dropdown (nur Namen und IDs)
-app.get('/api/available-templates-for-filter', (req, res) => {
-    console.log('📋 Lade Templates für Filter-Dropdown');
-    
-    db.all('SELECT id, name FROM gdocs_templates ORDER BY name ASC', (err, rows) => {
-        if (err) {
-            console.error('❌ Fehler beim Laden der Templates für Filter:', err);
-            return res.status(500).json({ error: 'Datenbankfehler' });
-        }
-        
-        console.log('📋 Templates für Filter gefunden:', rows ? rows.length : 0);
-        res.json(rows || []);
-    });
-});
 
 // ✅ KORRIGIERTE Template-Antwort API (POST)
 app.post('/api/submit-template-response', async (req, res) => {
@@ -2773,7 +2759,6 @@ process.on('SIGINT', () => {
     });
 
 });
-
 
 
 

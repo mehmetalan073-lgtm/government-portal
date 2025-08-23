@@ -249,30 +249,6 @@ body.dark #documentsViewInfo {
     color: #c0c0c0;
     border: 1px solid #4a4a4a;
 }
-        /* Template-Filter Dark Mode */
-body.dark #templateFilterContainer select {
-    background: #3a3a3a;
-    border-color: #4a4a4a;
-    color: #e0e0e0;
-}
-
-body.dark #templateFilterContainer label {
-    color: #e0e0e0;
-}
-
-/* Responsive Design für Filter */
-@media (max-width: 768px) {
-    #viewDocumentsTab > div:first-child > div:last-child {
-        width: 100%;
-        justify-content: flex-start;
-        flex-wrap: wrap;
-    }
-    
-    #documentsViewDropdown,
-    #templateFilterDropdown {
-        min-width: 140px;
-    }
-}
 
 /* Dokument-Item Styles für unterschiedliche Ersteller /
 .document-item[style*="border-left: 4px solid #17a2b8"] {
@@ -620,27 +596,14 @@ body.dark .document-item[style*="border-left: 4px solid #17a2b8"] {
 <div id="viewDocumentsTab" class="document-tab-content" style="display: none;">
     <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px;">
         <h3>📄 Dokumente anzeigen</h3>
-        <div style="display: flex; align-items: center; gap: 15px; flex-wrap: wrap;">
-    <!-- Ansicht-Dropdown (Meine/Alle) -->
-    <div style="display: flex; align-items: center; gap: 8px;">
-        <label for="documentsViewDropdown" style="font-size: 14px; color: #666; margin: 0; white-space: nowrap;">Ansicht:</label>
-        <select id="documentsViewDropdown" onchange="onDocumentsViewChange()" style="padding: 8px 12px; border: 2px solid #e0e0e0; border-radius: 4px; font-size: 14px; background: white; min-width: 150px;">
-            <option value="my">📁 Meine Dokumente</option>
-            <option value="all">🗂️ Alle Dokumente</option>
-        </select>
+        <div style="display: flex; align-items: center; gap: 10px;">
+            <label for="documentsViewDropdown" style="font-size: 14px; color: #666; margin: 0;">Ansicht:</label>
+            <select id="documentsViewDropdown" onchange="onDocumentsViewChange()" style="padding: 8px 12px; border: 2px solid #e0e0e0; border-radius: 4px; font-size: 14px; background: white; min-width: 150px;">
+                <option value="my">📁 Meine Dokumente</option>
+                <option value="all">🗂️ Alle Dokumente</option>
+            </select>
+        </div>
     </div>
-    
-    <!-- Template-Filter Dropdown -->
-    <div id="templateFilterContainer" style="display: none; align-items: center; gap: 8px;">
-        <label for="templateFilterDropdown" style="font-size: 14px; color: #666; margin: 0; white-space: nowrap;">Fragebogen:</label>
-        <select id="templateFilterDropdown" onchange="onTemplateFilterChange()" style="padding: 8px 12px; border: 2px solid #e0e0e0; border-radius: 4px; font-size: 14px; background: white; min-width: 180px;">
-            <option value="all">📋 Alle Typen</option>
-            <option value="manual">📝 Manuell erstellt</option>
-            <option value="templates">🗂️ Alle Fragebögen</option>
-            <!-- Dynamische Optionen werden hier eingefügt -->
-        </select>
-    </div>
-</div>
     
     <div style="margin-bottom: 15px; padding: 10px; background: #f8f9fa; border-radius: 6px; font-size: 13px; color: #666;">
         <span id="documentsViewInfo">
@@ -1033,73 +996,11 @@ function onDocumentsViewChange() {
     const viewMode = dropdown.value;
     console.log('📋 Neuer View-Modus:', viewMode);
     
-    // Template-Filter nur bei "Meine Dokumente" anzeigen
-    if (viewMode === 'my') {
-        const container = document.getElementById('templateFilterContainer');
-        if (container) {
-            container.style.display = 'flex';
-            // Lade Templates für Filter
-            setTimeout(() => {
-                loadAvailableTemplatesForFilter();
-            }, 100);
-        }
-    } else {
-        const container = document.getElementById('templateFilterContainer');
-        if (container) {
-            container.style.display = 'none';
-        }
-    }
-    
     // Info-Text aktualisieren
     updateDocumentsViewInfo(viewMode);
     
     // Dokumente neu laden
     loadUserDocuments();
-}
-        // Template-Filter Funktionen
-function onTemplateFilterChange() {
-    console.log('🔄 Template-Filter wird geändert...');
-    
-    const templateFilter = document.getElementById('templateFilterDropdown');
-    if (!templateFilter) return;
-    
-    const filterValue = templateFilter.value;
-    console.log('📋 Neuer Template-Filter:', filterValue);
-    
-    // Dokumente neu laden mit Filter
-    loadUserDocuments();
-}
-
-async function loadAvailableTemplatesForFilter() {
-    try {
-        const templates = await apiCall('/available-templates-for-filter');
-        updateTemplateFilterOptions(templates);
-    } catch (error) {
-        console.warn('⚠️ Konnte Template-Filter nicht laden:', error);
-    }
-}
-
-function updateTemplateFilterOptions(templates) {
-    const dropdown = document.getElementById('templateFilterDropdown');
-    if (!dropdown) return;
-    
-    // Behalte die Standard-Optionen
-    const standardOptions = `
-        <option value="all">📋 Alle Typen</option>
-        <option value="manual">📝 Manuell erstellt</option>
-        <option value="templates">🗂️ Alle Fragebögen</option>
-    `;
-    
-    // Füge spezifische Template-Optionen hinzu
-    let templateOptions = '';
-    if (templates && templates.length > 0) {
-        templateOptions = templates.map(template => 
-            `<option value="template_${template.id}">📋 ${template.name}</option>`
-        ).join('');
-    }
-    
-    dropdown.innerHTML = standardOptions + templateOptions;
-    console.log('📋 Template-Filter Optionen aktualisiert:', templates.length, 'Templates');
 }
 
 function updateDocumentsViewInfo(viewMode) {
@@ -1880,68 +1781,55 @@ function initializeDocumentsDropdown() {
         let documentsModalReturnScreen = null;
 
         function openDocumentsModal() {
-    console.log('🔍 Dokumente-Modal wird geöffnet...');
-    
-    // Aktuelle Screen merken für Rückkehr
-    const currentScreen = document.querySelector('.screen.active');
-    if (currentScreen) {
-        documentsModalReturnScreen = currentScreen.id;
-        console.log('📍 Aktuelle Screen:', currentScreen.id);
-    }
-    
-    const modal = document.getElementById('documentsModal');
-    console.log('🎯 Modal gefunden:', modal ? 'Ja' : 'Nein');
-    
-    if (modal) {
-        modal.classList.add('active');
-        console.log('✅ Modal aktiviert');
-        
-        // G-Docs Tab nur für Admins anzeigen
-        const gdocsTabButton = document.getElementById('gdocsTabButton');
-        if (gdocsTabButton && currentSession.user) {
-            const hasAdminRights = hasFullAccess(currentSession.user.rank || 'user');
-            gdocsTabButton.style.display = hasAdminRights ? 'block' : 'none';
-            console.log('📝 G-Docs Tab für Admin:', hasAdminRights ? 'Sichtbar' : 'Versteckt');
-            console.log('👤 Benutzer-Rang:', currentSession.user.rank, '| Admin-Rechte:', hasAdminRights);
-        } else {
-            console.warn('⚠️ G-Docs Tab Button nicht gefunden oder kein Benutzer angemeldet');
-        }
-        
-        // Auto-fill user data
-        console.log('📝 Fülle Benutzerdaten aus...');
-        prefillUserData();
-        
-        // Initialisiere Dropdown
-        setTimeout(() => {
-            initializeDocumentsDropdown();
-        }, 100);
-        
-        // Load initial content based on active tab
-        const activeTab = document.querySelector('.documents-tab.active');
-        if (activeTab) {
-            const tabText = activeTab.textContent.trim();
-            console.log('🔍 Aktiver Tab:', tabText);
+            console.log('🔍 Dokumente-Modal wird geöffnet...');
             
-            if (tabText.includes('Meine Dokumente')) {
-                loadUserDocuments();
-            } else if (tabText.includes('G-Docs Vorlagen')) {
-                loadGdocsTemplates();
-            } else if (tabText.includes('Fragebögen')) {
-                loadAvailableTemplates();
-            } else {
-                // Default: Create Tab ist aktiv, lade nichts
-                console.log('ℹ️ Create Tab ist aktiv, lade keine Daten');
+            // Aktuelle Screen merken für Rückkehr
+            const currentScreen = document.querySelector('.screen.active');
+            if (currentScreen) {
+                documentsModalReturnScreen = currentScreen.id;
+                console.log('📍 Aktuelle Screen:', currentScreen.id);
             }
-        } else {
-            console.log('⚠️ Kein aktiver Tab gefunden');
+            
+            const modal = document.getElementById('documentsModal');
+            console.log('🎯 Modal gefunden:', modal ? 'Ja' : 'Nein');
+            
+            if (modal) {
+                modal.classList.add('active');
+                console.log('✅ Modal aktiviert');
+                
+                // G-Docs Tab nur für Admins anzeigen
+                const gdocsTabButton = document.getElementById('gdocsTabButton');
+                if (gdocsTabButton && currentSession.user) {
+                    const hasAdminRights = hasFullAccess(currentSession.user.rank || 'user');
+                    gdocsTabButton.style.display = hasAdminRights ? 'block' : 'none';
+                    console.log('📝 G-Docs Tab für Admin:', hasAdminRights ? 'Sichtbar' : 'Versteckt');
+                    console.log('👤 Benutzer-Rang:', currentSession.user.rank, '| Admin-Rechte:', hasAdminRights);
+                } else {
+                    console.warn('⚠️ G-Docs Tab Button nicht gefunden oder kein Benutzer angemeldet');
+                }
+                
+                // Auto-fill user data
+                console.log('📝 Fülle Benutzerdaten aus...');
+                prefillUserData();
+                // Initialisiere Dropdown
+setTimeout(() => {
+    initializeDocumentsDropdown();
+}, 100);
+                
+                // Load user documents
+                console.log('📄 Lade Benutzerdokumente...');
+                loadUserDocuments();
+                
+                // Load available templates
+                console.log('📋 Lade verfügbare Vorlagen...');
+                loadAvailableTemplates();
+                
+                console.log('🎉 Modal-Setup abgeschlossen!');
+            } else {
+                console.error('❌ Modal nicht gefunden!');
+                alert('Fehler: Dokumente-Modal nicht gefunden!');
+            }
         }
-        
-        console.log('🎉 Modal-Setup abgeschlossen!');
-    } else {
-        console.error('❌ Modal nicht gefunden!');
-        alert('Fehler: Dokumente-Modal nicht gefunden!');
-    }
-}
 
         function closeDocumentsModal() {
             const modal = document.getElementById('documentsModal');
@@ -2758,39 +2646,28 @@ function closeDocxPreviewModal() {
 }
 
         async function loadGdocsTemplates() {
-    console.log('📝 loadGdocsTemplates() gestartet');
-    
-    const container = document.getElementById('gdocsTemplatesList');
-    if (!container) {
-        console.error('❌ gdocsTemplatesList Container nicht gefunden!');
-        return;
-    }
-    
-    console.log('📦 G-Docs Container gefunden:', container);
-    container.innerHTML = '<div class="loading">Lade G-Docs Vorlagen...</div>';
-    
-    try {
-        console.log('🔗 API-Aufruf: /gdocs-templates');
-        const templates = await apiCall('/gdocs-templates');
-        console.log('📝 G-Docs Templates erhalten:', templates);
-        console.log('🔄 Rufe updateGdocsTemplatesList auf...');
-        
-        // DEBUG: Prüfe ob updateGdocsTemplatesList existiert
-        if (typeof updateGdocsTemplatesList === 'function') {
-            updateGdocsTemplatesList(templates);
-            console.log('✅ updateGdocsTemplatesList aufgerufen');
-        } else {
-            console.error('❌ updateGdocsTemplatesList Funktion nicht gefunden!');
-            // FALLBACK: Direkt setzen
-            if (templates.length === 0) {
-                container.innerHTML = '<p style="text-align: center; color: #666; padding: 20px;">Noch keine G-Docs Vorlagen erstellt</p>';
+            console.log('📝 loadGdocsTemplates() gestartet');
+            
+            const container = document.getElementById('gdocsTemplatesList');
+            if (!container) {
+                console.error('❌ gdocsTemplatesList Container nicht gefunden!');
+                return;
+            }
+            
+            console.log('📦 G-Docs Container gefunden:', container);
+            container.innerHTML = '<div class="loading">Lade G-Docs Vorlagen...</div>';
+            
+            try {
+                console.log('🔗 API-Aufruf: /gdocs-templates');
+                const templates = await apiCall('/gdocs-templates');
+                console.log('📝 G-Docs Templates erhalten:', templates);
+                updateGdocsTemplatesList(templates);
+            } catch (error) {
+                console.error('❌ Fehler beim Laden der G-Docs Templates:', error);
+                container.innerHTML = `<p style="color: red;">Fehler beim Laden: ${error.message}</p>`;
             }
         }
-    } catch (error) {
-        console.error('❌ Fehler beim Laden der G-Docs Templates:', error);
-        container.innerHTML = `<p style="color: red;">Fehler beim Laden: ${error.message}</p>`;
-    }
-}
+
         function updateGdocsTemplatesList(templates) {
             const container = document.getElementById('gdocsTemplatesList');
             if (!container) return;
@@ -2853,48 +2730,36 @@ function closeDocxPreviewModal() {
 }
 
         async function loadAvailableTemplates() {
-    console.log('📋 loadAvailableTemplates() gestartet');
-    
-    const container = document.getElementById('availableTemplatesList');
-    if (!container) {
-        console.error('❌ availableTemplatesList Container nicht gefunden!');
-        return;
-    }
-    
-    console.log('📦 Container gefunden:', container);
-    container.innerHTML = '<div class="loading">Lade verfügbare Vorlagen...</div>';
-    
-    if (!currentSession.user) {
-        console.error('❌ Kein Benutzer angemeldet!');
-        container.innerHTML = '<p style="color: red;">Fehler: Kein Benutzer angemeldet</p>';
-        return;
-    }
-    
-    const userRank = currentSession.user.rank || 'user';
-    console.log('👤 Benutzer-Rang für Templates:', userRank);
-    
-    try {
-        console.log('🔗 API-Aufruf:', `/available-templates/${userRank}`);
-        const templates = await apiCall(`/available-templates/${userRank}`);
-        console.log('📋 Templates erhalten:', templates);
-        console.log('🔄 Rufe updateAvailableTemplatesList auf...');
-        
-        // DEBUG: Prüfe ob updateAvailableTemplatesList existiert
-        if (typeof updateAvailableTemplatesList === 'function') {
-            updateAvailableTemplatesList(templates);
-            console.log('✅ updateAvailableTemplatesList aufgerufen');
-        } else {
-            console.error('❌ updateAvailableTemplatesList Funktion nicht gefunden!');
-            // FALLBACK: Direkt setzen
-            if (templates.length === 0) {
-                container.innerHTML = '<p style="text-align: center; color: #666; padding: 40px;">Keine Vorlagen für Ihren Rang verfügbar</p>';
+            console.log('📋 loadAvailableTemplates() gestartet');
+            
+            const container = document.getElementById('availableTemplatesList');
+            if (!container) {
+                console.error('❌ availableTemplatesList Container nicht gefunden!');
+                return;
+            }
+            
+            console.log('📦 Container gefunden:', container);
+            container.innerHTML = '<div class="loading">Lade verfügbare Vorlagen...</div>';
+            
+            if (!currentSession.user) {
+                console.error('❌ Kein Benutzer angemeldet!');
+                container.innerHTML = '<p style="color: red;">Fehler: Kein Benutzer angemeldet</p>';
+                return;
+            }
+            
+            const userRank = currentSession.user.rank || 'user';
+            console.log('👤 Benutzer-Rang für Templates:', userRank);
+            
+            try {
+                console.log('🔗 API-Aufruf:', `/available-templates/${userRank}`);
+                const templates = await apiCall(`/available-templates/${userRank}`);
+                console.log('📋 Templates erhalten:', templates);
+                updateAvailableTemplatesList(templates);
+            } catch (error) {
+                console.error('❌ Fehler beim Laden der Templates:', error);
+                container.innerHTML = `<p style="color: red;">Fehler beim Laden: ${error.message}</p>`;
             }
         }
-    } catch (error) {
-        console.error('❌ Fehler beim Laden der Templates:', error);
-        container.innerHTML = `<p style="color: red;">Fehler beim Laden: ${error.message}</p>`;
-    }
-}
 
         function updateAvailableTemplatesList(templates) {
             const container = document.getElementById('availableTemplatesList');
@@ -4152,12 +4017,6 @@ async function saveTemplateChanges(templateId) {
     </script>
 </body>
 </html>
-
-
-
-
-
-
 
 
 
