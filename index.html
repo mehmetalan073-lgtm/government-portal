@@ -235,6 +235,159 @@ body.dark #editQuestionsModal label{color:#e0e0e0}
         .rank-selector{margin:10px 0}
         .rank-selector select{padding:8px 12px;border:2px solid #e0e0e0;border-radius:4px;font-size:13px;background:white}
         body.dark .rank-selector select{background:#3a3a3a;border-color:#4a4a4a;color:#e0e0e0}
+     /* Document Filter Dropdown Styles */
+#documentsFilterDropdown {
+    transition: all 0.3s ease;
+}
+
+#documentsFilterDropdown:focus {
+    border-color: #6a4c93;
+    box-shadow: 0 0 0 3px rgba(106, 76, 147, 0.1);
+}
+
+/* Improved Document Tab Layout */
+#viewDocumentsTab > div:first-child {
+    background: linear-gradient(135deg, #f8f9fa 0%, #ffffff 100%);
+    border: 1px solid #e9ecef;
+    border-radius: 8px;
+    padding: 20px;
+    box-shadow: 0 2px 10px rgba(0,0,0,0.05);
+}
+
+/* Dark Mode für neue Elemente */
+body.dark #documentsFilterDropdown {
+    background: #3a3a3a;
+    border-color: #4a4a4a;
+    color: #e0e0e0;
+}
+
+body.dark #documentsFilterDropdown:focus {
+    border-color: #6a4c93;
+    box-shadow: 0 0 0 3px rgba(106, 76, 147, 0.3);
+}
+
+body.dark #viewDocumentsTab > div:first-child {
+    background: linear-gradient(135deg, #2d2d2d 0%, #3a3a3a 100%);
+    border-color: #4a4a4a;
+}
+
+/* Responsive Design für Dropdowns */
+@media (max-width: 768px) {
+    #viewDocumentsTab > div:first-child > div {
+        flex-direction: column;
+        align-items: flex-start !important;
+        gap: 15px;
+    }
+    
+    #viewDocumentsTab > div:first-child > div > div {
+        width: 100%;
+        justify-content: space-between;
+    }
+    
+    #documentsViewDropdown,
+    #documentsFilterDropdown {
+        min-width: 180px;
+    }
+    
+    #documentsViewInfo {
+        margin-bottom: 10px;
+        width: 100% !important;
+        box-sizing: border-box;
+    }
+}
+
+/* Document Type Badges Verbesserungen */
+.document-type-badge {
+    display: inline-block;
+    padding: 4px 12px;
+    border-radius: 15px;
+    font-size: 11px;
+    font-weight: 600;
+    margin-left: 10px;
+    text-transform: uppercase;
+}
+
+.document-type-badge.manual {
+    background: linear-gradient(135deg, #6c757d 0%, #5a6268 100%);
+    color: white;
+}
+
+.document-type-badge.template {
+    background: linear-gradient(135deg, #17a2b8 0%, #138496 100%);
+    color: white;
+}
+
+.document-type-badge.template.has-docx {
+    background: linear-gradient(135deg, #28a745 0%, #20a038 100%);
+}
+
+/* Document Item Layout Verbesserungen */
+.document-item {
+    transition: all 0.3s ease;
+    border-radius: 8px;
+    overflow: hidden;
+}
+
+.document-item:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 6px 20px rgba(106, 76, 147, 0.15);
+}
+
+.document-title {
+    font-size: 16px;
+    font-weight: 600;
+    color: #2c2c2c;
+    margin-bottom: 10px;
+    line-height: 1.4;
+    display: flex;
+    align-items: center;
+    flex-wrap: wrap;
+    gap: 8px;
+}
+
+.document-details {
+    font-size: 14px;
+    color: #555;
+    line-height: 1.5;
+}
+
+.document-details p {
+    margin: 6px 0;
+}
+
+.document-actions {
+    display: flex;
+    gap: 10px;
+    flex-wrap: wrap;
+    margin-top: 15px;
+    padding-top: 15px;
+    border-top: 1px solid #f0f0f0;
+}
+
+.document-actions button {
+    flex: 0 0 auto;
+    white-space: nowrap;
+    font-size: 13px;
+    padding: 8px 16px;
+}
+
+/* Dark Mode für Document Items */
+body.dark .document-item {
+    background: linear-gradient(135deg, #2d2d2d 0%, #3a3a3a 100%);
+    border-color: #4a4a4a;
+}
+
+body.dark .document-title {
+    color: #e0e0e0;
+}
+
+body.dark .document-details {
+    color: #c0c0c0;
+}
+
+body.dark .document-actions {
+    border-top-color: #4a4a4a;
+}   
     </style>
     <style>
 /* Dark Mode für Dropdown */
@@ -594,16 +747,40 @@ body.dark .document-item[style*="border-left: 4px solid #17a2b8"] {
 
                     <!-- View Documents Tab -->
 <div id="viewDocumentsTab" class="document-tab-content" style="display: none;">
-    <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px;">
-        <h3>📄 Dokumente anzeigen</h3>
-        <div style="display: flex; align-items: center; gap: 10px;">
-            <label for="documentsViewDropdown" style="font-size: 14px; color: #666; margin: 0;">Ansicht:</label>
-            <select id="documentsViewDropdown" onchange="onDocumentsViewChange()" style="padding: 8px 12px; border: 2px solid #e0e0e0; border-radius: 4px; font-size: 14px; background: white; min-width: 150px;">
-                <option value="my">📁 Meine Dokumente</option>
-                <option value="all">🗂️ Alle Dokumente</option>
-            </select>
+    <div style="margin-bottom: 20px;">
+        <!-- Erste Zeile: Titel und Ansicht-Dropdown -->
+        <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 15px;">
+            <h3 style="margin: 0;">📄 Dokumente anzeigen</h3>
+            <div style="display: flex; align-items: center; gap: 10px;">
+                <label for="documentsViewDropdown" style="font-size: 14px; color: #666; margin: 0;">Ansicht:</label>
+                <select id="documentsViewDropdown" onchange="onDocumentsViewChange()" style="padding: 8px 12px; border: 2px solid #e0e0e0; border-radius: 4px; font-size: 14px; background: white; min-width: 150px;">
+                    <option value="my">📁 Meine Dokumente</option>
+                    <option value="all">🗂️ Alle Dokumente</option>
+                </select>
+            </div>
+        </div>
+        
+        <!-- Zweite Zeile: Filter-Dropdown -->
+        <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 15px;">
+            <div style="flex: 1;">
+                <span id="documentsViewInfo" style="font-size: 13px; color: #666; padding: 10px; background: #f8f9fa; border-radius: 6px; display: inline-block;">
+                    📁 <strong>Meine Dokumente:</strong> Zeigt nur Ihre eigenen erstellten Dokumente an.
+                </span>
+            </div>
+            <div style="display: flex; align-items: center; gap: 10px;">
+                <label for="documentsFilterDropdown" style="font-size: 14px; color: #666; margin: 0;">Filter:</label>
+                <select id="documentsFilterDropdown" onchange="onDocumentsFilterChange()" style="padding: 8px 12px; border: 2px solid #e0e0e0; border-radius: 4px; font-size: 14px; background: white; min-width: 200px;">
+                    <option value="all">📋 Alle Dokumenttypen</option>
+                    <option value="manual">📝 Manuelle Dokumente</option>
+                    <option value="template">🗂️ Alle Fragebögen</option>
+                    <!-- Template-spezifische Optionen werden dynamisch hinzugefügt -->
+                </select>
+            </div>
         </div>
     </div>
+    
+    <div id="documentsListContainer" class="loading">Lade Dokumente...</div>
+</div>
     
     <div style="margin-bottom: 15px; padding: 10px; background: #f8f9fa; border-radius: 6px; font-size: 13px; color: #666;">
         <span id="documentsViewInfo">
@@ -989,7 +1166,7 @@ function onDocumentsViewChange() {
     
     const dropdown = document.getElementById('documentsViewDropdown');
     if (!dropdown) {
-        console.error('❌ Dropdown nicht gefunden!');
+        console.error('❌ View-Dropdown nicht gefunden!');
         return;
     }
     
@@ -999,8 +1176,106 @@ function onDocumentsViewChange() {
     // Info-Text aktualisieren
     updateDocumentsViewInfo(viewMode);
     
+    // Template-Typen für Filter-Dropdown neu laden
+    loadTemplateTypesForFilter();
+    
     // Dokumente neu laden
     loadUserDocuments();
+}
+        // Neue Funktion: Filter-Dropdown Change Handler
+function onDocumentsFilterChange() {
+    console.log('🔍 Dokumentenfilter wird geändert...');
+    
+    const filterDropdown = document.getElementById('documentsFilterDropdown');
+    if (!filterDropdown) {
+        console.error('❌ Filter-Dropdown nicht gefunden!');
+        return;
+    }
+    
+    const filterValue = filterDropdown.value;
+    console.log('🔍 Neuer Filter-Wert:', filterValue);
+    
+    // Dokumente mit Filter neu laden
+    loadUserDocuments();
+}
+
+// Neue Funktion: Template-Typen für Filter-Dropdown laden
+async function loadTemplateTypesForFilter() {
+    console.log('📋 Lade Template-Typen für Filter...');
+    
+    const filterDropdown = document.getElementById('documentsFilterDropdown');
+    if (!filterDropdown) {
+        console.error('❌ Filter-Dropdown nicht gefunden');
+        return;
+    }
+    
+    try {
+        console.log('🔗 API-Aufruf: /template-types');
+        const data = await apiCall('/template-types');
+        console.log('📊 Template-Typen erhalten:', data);
+        
+        updateFilterDropdown(data);
+        
+    } catch (error) {
+        console.error('❌ Fehler beim Laden der Template-Typen:', error);
+    }
+}
+
+// Neue Funktion: Filter-Dropdown aktualisieren
+function updateFilterDropdown(data) {
+    const filterDropdown = document.getElementById('documentsFilterDropdown');
+    if (!filterDropdown) return;
+    
+    const currentValue = filterDropdown.value;
+    
+    // Basis-Optionen
+    let optionsHtml = `
+        <option value="all">📋 Alle Dokumenttypen</option>
+        <option value="manual">📝 Manuelle Dokumente (${data.manualDocumentsCount})</option>
+        <option value="template">🗂️ Alle Fragebögen</option>
+    `;
+    
+    // Template-spezifische Optionen hinzufügen
+    if (data.templates && data.templates.length > 0) {
+        optionsHtml += '<optgroup label="📋 Spezifische Fragebögen:">';
+        
+        data.templates.forEach(template => {
+            const count = template.document_count || 0;
+            optionsHtml += `<option value="template-${template.id}">📝 ${template.name} (${count})</option>`;
+        });
+        
+        optionsHtml += '</optgroup>';
+    }
+    
+    filterDropdown.innerHTML = optionsHtml;
+    
+    // Vorherige Auswahl wiederherstellen falls möglich
+    if (currentValue && filterDropdown.querySelector(`option[value="${currentValue}"]`)) {
+        filterDropdown.value = currentValue;
+    }
+    
+    console.log('✅ Filter-Dropdown aktualisiert mit', data.templates ? data.templates.length : 0, 'Templates');
+}
+
+// Neue Funktion: Aktueller Filter-Wert parsen
+function parseFilterValue() {
+    const filterDropdown = document.getElementById('documentsFilterDropdown');
+    if (!filterDropdown) return { filterType: 'all' };
+    
+    const filterValue = filterDropdown.value;
+    
+    if (filterValue === 'all') {
+        return { filterType: 'all' };
+    } else if (filterValue === 'manual') {
+        return { filterType: 'manual' };
+    } else if (filterValue === 'template') {
+        return { filterType: 'template' };
+    } else if (filterValue.startsWith('template-')) {
+        const templateId = filterValue.replace('template-', '');
+        return { filterType: 'template', templateId: templateId };
+    }
+    
+    return { filterType: 'all' };
 }
 
 function updateDocumentsViewInfo(viewMode) {
@@ -1020,21 +1295,32 @@ function updateDocumentsViewInfo(viewMode) {
 }
 
 function initializeDocumentsDropdown() {
-    console.log('🎛️ Initialisiere Dokumente-Dropdown...');
+    console.log('🎛️ Initialisiere Dokumente-Dropdowns...');
     
-    const dropdown = document.getElementById('documentsViewDropdown');
-    if (!dropdown) {
-        console.warn('⚠️ Dokumente-Dropdown nicht gefunden');
+    const viewDropdown = document.getElementById('documentsViewDropdown');
+    const filterDropdown = document.getElementById('documentsFilterDropdown');
+    
+    if (!viewDropdown) {
+        console.warn('⚠️ View-Dropdown nicht gefunden');
         return;
     }
     
-    // Setze Default-Wert
-    dropdown.value = 'my';
+    if (!filterDropdown) {
+        console.warn('⚠️ Filter-Dropdown nicht gefunden');
+        return;
+    }
+    
+    // Setze Default-Werte
+    viewDropdown.value = 'my';
+    filterDropdown.value = 'all';
     
     // Aktualisiere Info-Text
     updateDocumentsViewInfo('my');
     
-    console.log('✅ Dropdown initialisiert');
+    // Lade Template-Typen für Filter
+    loadTemplateTypesForFilter();
+    
+    console.log('✅ Dropdowns initialisiert');
 }
 
         function showAdminDashboard() {
@@ -1911,6 +2197,10 @@ setTimeout(() => {
             // Tab-spezifische Aktionen
             if (tabName === 'view') {
                 loadUserDocuments();
+                // Initialisiere auch Template-Filter
+        setTimeout(() => {
+            loadTemplateTypesForFilter();
+        }, 500);
             } else if (tabName === 'gdocs') {
                 loadGdocsTemplates();
             } else if (tabName === 'templates') {
@@ -2001,41 +2291,65 @@ setTimeout(() => {
         return;
     }
     
-    // Prüfe Dropdown-Auswahl
-    const dropdown = document.getElementById('documentsViewDropdown');
-    const viewMode = dropdown ? dropdown.value : 'my';
+    // Prüfe View-Modus (my/all)
+    const viewDropdown = document.getElementById('documentsViewDropdown');
+    const viewMode = viewDropdown ? viewDropdown.value : 'my';
     
-    console.log('📦 Dokumente-Container gefunden, View-Modus:', viewMode);
+    // Prüfe Filter-Einstellungen
+    const filterSettings = parseFilterValue();
+    
+    console.log('📦 Dokumente-Container gefunden');
+    console.log('👁️ View-Modus:', viewMode);
+    console.log('🔍 Filter-Einstellungen:', filterSettings);
     console.log('👤 Benutzer:', currentSession.user.username);
     
-    if (viewMode === 'all') {
-        container.innerHTML = '<div class="loading">Lade alle Dokumente aus SQL-Datenbank...</div>';
+    // Loading-Nachricht basierend auf Filter
+    let loadingMessage = 'Lade Dokumente aus SQL-Datenbank...';
+    if (filterSettings.filterType === 'manual') {
+        loadingMessage = viewMode === 'all' ? 'Lade alle manuellen Dokumente...' : 'Lade meine manuellen Dokumente...';
+    } else if (filterSettings.filterType === 'template' && filterSettings.templateId) {
+        loadingMessage = 'Lade Fragebogen-spezifische Dokumente...';
+    } else if (filterSettings.filterType === 'template') {
+        loadingMessage = 'Lade alle Fragebogen-Dokumente...';
+    } else if (viewMode === 'all') {
+        loadingMessage = 'Lade alle Dokumente aus SQL-Datenbank...';
     } else {
-        container.innerHTML = '<div class="loading">Lade meine Dokumente aus SQL-Datenbank...</div>';
+        loadingMessage = 'Lade meine Dokumente aus SQL-Datenbank...';
     }
+    
+    container.innerHTML = `<div class="loading">${loadingMessage}</div>`;
     
     try {
         let apiUrl, documents;
         
+        // API-URL basierend auf View-Modus bestimmen
         if (viewMode === 'all') {
-            // Lade alle Dokumente
             apiUrl = '/all-documents';
-            console.log('🔗 API-Aufruf für alle Dokumente:', apiUrl);
-            documents = await apiCall(apiUrl);
         } else {
-            // Lade nur Benutzer-Dokumente
             apiUrl = `/documents/${currentSession.user.username}`;
-            console.log('🔗 API-Aufruf für Benutzer-Dokumente:', apiUrl);
-            documents = await apiCall(apiUrl);
         }
+        
+        // Query-Parameter für Filterung hinzufügen
+        const queryParams = new URLSearchParams();
+        if (filterSettings.filterType !== 'all') {
+            queryParams.set('filterType', filterSettings.filterType);
+            if (filterSettings.templateId) {
+                queryParams.set('templateId', filterSettings.templateId);
+            }
+        }
+        
+        const fullApiUrl = queryParams.toString() ? `${apiUrl}?${queryParams.toString()}` : apiUrl;
+        
+        console.log('🔗 API-Aufruf:', fullApiUrl);
+        documents = await apiCall(fullApiUrl);
         
         console.log('📄 Dokumente von API erhalten:', documents);
         console.log('📊 Anzahl Dokumente:', documents ? documents.length : 'undefined');
         
-        updateDocumentsList(documents, viewMode);
+        updateDocumentsList(documents, viewMode, filterSettings);
     } catch (error) {
         console.error('❌ Fehler beim Laden der Dokumente:', error);
-        container.innerHTML = `<p style="color: red;">Fehler beim Laden: ${error.message}</p>`;
+        container.innerHTML = `<p style="color: red; text-align: center; padding: 40px;">Fehler beim Laden: ${error.message}</p>`;
     }
 }
 
@@ -2222,8 +2536,11 @@ async function deleteDocumentFromDetails(docId) {
 }
 
 // ✅ KORRIGIERTE updateDocumentsList mit DOCX-Support
-function updateDocumentsList(documents, viewMode = 'my') {
-    console.log('📋 updateDocumentsList() gestartet mit:', documents, 'View-Modus:', viewMode);
+function updateDocumentsList(documents, viewMode = 'my', filterSettings = { filterType: 'all' }) {
+    console.log('📋 updateDocumentsList() gestartet');
+    console.log('📊 Dokumente:', documents ? documents.length : 'null');
+    console.log('👁️ View-Modus:', viewMode);
+    console.log('🔍 Filter:', filterSettings);
     
     const container = document.getElementById('documentsListContainer');
     if (!container) {
@@ -2238,25 +2555,44 @@ function updateDocumentsList(documents, viewMode = 'my') {
     }
     
     if (documents.length === 0) {
-        const emptyMessage = viewMode === 'all' 
-            ? 'Noch keine Dokumente im System vorhanden' 
-            : 'Noch keine eigenen Dokumente erstellt';
-        console.log('🔭', emptyMessage);
+        let emptyMessage = 'Noch keine Dokumente gefunden';
+        
+        if (filterSettings.filterType === 'manual') {
+            emptyMessage = viewMode === 'all' 
+                ? 'Noch keine manuellen Dokumente im System vorhanden' 
+                : 'Noch keine eigenen manuellen Dokumente erstellt';
+        } else if (filterSettings.filterType === 'template' && filterSettings.templateId) {
+            emptyMessage = 'Noch keine Dokumente für diesen Fragebogen erstellt';
+        } else if (filterSettings.filterType === 'template') {
+            emptyMessage = viewMode === 'all' 
+                ? 'Noch keine Fragebogen-Dokumente im System vorhanden' 
+                : 'Noch keine eigenen Fragebögen ausgefüllt';
+        } else {
+            emptyMessage = viewMode === 'all' 
+                ? 'Noch keine Dokumente im System vorhanden' 
+                : 'Noch keine eigenen Dokumente erstellt';
+        }
+        
+        console.log('📭', emptyMessage);
         container.innerHTML = `<p style="text-align: center; color: #666; padding: 40px;">${emptyMessage}</p>`;
         return;
     }
 
-    console.log('📄 Erstelle HTML für', documents.length, 'Dokumente');
+    console.log('🔄 Erstelle HTML für', documents.length, 'Dokumente');
     
     const documentsHtml = documents.map((doc, index) => {
-        console.log(`📄 Dokument ${index + 1}:`, doc);
+        console.log(`📄 Dokument ${index + 1}:`, {
+            id: doc.id,
+            full_name: doc.full_name,
+            document_type: doc.document_type,
+            template_name: doc.template_name
+        });
         
-        // ✅ SICHERHEITSPRÜFUNG für currentSession
         const currentUsername = currentSession && currentSession.user ? currentSession.user.username : null;
         
         // Zusätzliche Anzeige für "Alle Dokumente" Modus
         const creatorInfo = viewMode === 'all' && doc.created_by !== currentUsername 
-            ? `<p><strong>Erstellt von:</strong> <span style="color: #6a4c93; font-weight: 600;">${doc.created_by}</span></p>` 
+            ? `<p><strong>Erstellt von:</strong> <span class="creator-badge">${doc.created_by}</span></p>` 
             : '';
         
         // Zeige verschiedene Aktionen basierend auf Berechtigung
@@ -2266,7 +2602,7 @@ function updateDocumentsList(documents, viewMode = 'my') {
         
         // DOCX Download & Vorschau Buttons
         const docxButtons = doc.generated_docx_path ? `
-            <button class="btn-success" onclick="downloadGeneratedDocx(${doc.id})" title="Generierte DOCX-Datei herunterladen">📥 DOCX Download</button>
+            <button class="btn-success" onclick="downloadGeneratedDocx(${doc.id})" title="Generierte DOCX-Datei herunterladen">📥 DOCX</button>
             <button class="btn-secondary" onclick="previewGeneratedDocx(${doc.id})" title="DOCX-Vorschau anzeigen">👁️ Vorschau</button>
         ` : '';
         
@@ -2277,36 +2613,42 @@ function updateDocumentsList(documents, viewMode = 'my') {
             ${canDelete ? `<button class="btn-danger" onclick="deleteDocument(${doc.id})">🗑️ Löschen</button>` : ''}
         `;
         
-        // Document-Type Badge mit DOCX-Indikator
+        // Document-Type Badge mit Template-Name
         let typeBadge = '';
         if (doc.document_type === 'template') {
-            typeBadge = '<span style="background: #17a2b8; color: white; padding: 2px 8px; border-radius: 3px; font-size: 11px; margin-left: 10px;">📋 FRAGEBOGEN</span>';
+            const templateName = doc.template_name || 'Unbekannter Fragebogen';
+            typeBadge = `<span class="document-type-badge template ${doc.generated_docx_path ? 'has-docx' : ''}">📋 ${templateName}</span>`;
             if (doc.generated_docx_path) {
-                typeBadge += '<span style="background: #28a745; color: white; padding: 2px 8px; border-radius: 3px; font-size: 11px; margin-left: 5px;">📄 DOCX</span>';
+                typeBadge += '<span class="document-type-badge template has-docx">📄 DOCX</span>';
             }
         } else {
-            typeBadge = '<span style="background: #6c757d; color: white; padding: 2px 8px; border-radius: 3px; font-size: 11px; margin-left: 10px;">📝 MANUELL</span>';
+            typeBadge = '<span class="document-type-badge manual">📝 Manuell</span>';
         }
         
         // DOCX-Info anzeigen falls vorhanden
         const docxInfo = doc.generated_docx_path ? `
             <p><strong>Generierte Datei:</strong> 
                 <span style="color: #28a745; font-weight: 600;">${doc.generated_filename || 'Verfügbar'}</span>
-                <span style="font-size: 11px; background: #d4edda; color: #155724; padding: 2px 6px; border-radius: 3px; margin-left: 8px;">
-                    📄 DOCX verfügbar
-                </span>
+                ${doc.file_number ? `<span style="font-size: 11px; background: #17a2b8; color: white; padding: 2px 6px; border-radius: 3px; margin-left: 8px;">${doc.file_number}</span>` : ''}
             </p>
+        ` : '';
+        
+        // Template-spezifische Informationen
+        const templateInfo = doc.document_type === 'template' && doc.template_name ? `
+            <p><strong>Fragebogen:</strong> ${doc.template_name}</p>
+            ${doc.template_description ? `<p><strong>Beschreibung:</strong> ${doc.template_description}</p>` : ''}
         ` : '';
         
         return `
             <div class="document-item" style="${!isOwnDocument ? 'border-left: 4px solid #17a2b8;' : ''}">
                 <div class="document-date">Erstellt: ${new Date(doc.created_at).toLocaleString('de-DE')}</div>
                 <div class="document-title">
-                    ${doc.full_name} - ${doc.purpose}
+                    <span>${doc.full_name} - ${doc.purpose}</span>
                     ${typeBadge}
                 </div>
                 <div class="document-details">
                     ${creatorInfo}
+                    ${templateInfo}
                     ${doc.birth_date ? `<p><strong>Geburtsdatum:</strong> ${new Date(doc.birth_date).toLocaleDateString('de-DE')}</p>` : ''}
                     ${doc.address ? `<p><strong>Adresse:</strong> ${doc.address}</p>` : ''}
                     ${doc.phone ? `<p><strong>Telefon:</strong> ${doc.phone}</p>` : ''}
@@ -2314,7 +2656,7 @@ function updateDocumentsList(documents, viewMode = 'my') {
                     ${doc.additional_info ? `<p><strong>Zusätzliche Infos:</strong> ${doc.additional_info}</p>` : ''}
                     ${docxInfo}
                 </div>
-                <div class="document-actions" style="display: flex; gap: 8px; flex-wrap: wrap;">
+                <div class="document-actions">
                     ${actionButtons}
                 </div>
             </div>
@@ -4017,6 +4359,7 @@ async function saveTemplateChanges(templateId) {
     </script>
 </body>
 </html>
+
 
 
 
