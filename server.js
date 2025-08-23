@@ -1011,20 +1011,45 @@ function openDocumentsModal() {
 
 // Alle Dokumente abrufen (neue Route)
 app.get('/api/all-documents', (req, res) => {
-    console.log('📄 /api/all-documents aufgerufen - Lade alle Dokumente');
+    const { filterType, templateId } = req.query;
     
-    // SQL-Query um alle Dokumente mit Benutzer-Informationen zu holen
-    const query = `
+    console.log('📄 /api/all-documents aufgerufen - Lade alle Dokumente');
+    console.log('🔍 Filter:', { filterType, templateId });
+    
+    let query = `
         SELECT 
             d.*,
             u.full_name as creator_full_name,
-            u.rank as creator_rank
+            u.rank as creator_rank,
+            gt.name as template_name,
+            gt.description as template_description
         FROM documents d
         LEFT JOIN users u ON d.created_by = u.username
-        ORDER BY d.created_at DESC
+        LEFT JOIN template_responses tr ON d.template_response_id = tr.id
+        LEFT JOIN gdocs_templates gt ON tr.template_id = gt.id
     `;
+    let queryParams = [];
     
-    db.all(query, [], (err, rows) => {
+    // Filter basierend auf Typ anwenden
+    if (filterType === 'manual') {
+        query += ` WHERE d.document_type = 'manual'`;
+        console.log('🔍 Filter: Nur manuelle Dokumente');
+    } else if (filterType === 'template' && templateId) {
+        query += ` WHERE tr.template_id = ?`;
+        queryParams.push(templateId);
+        console.log('🔍 Filter: Nur Template ID', templateId);
+    } else if (filterType === 'template') {
+        query += ` WHERE d.document_type = 'template'`;
+        console.log('🔍 Filter: Alle Fragebogen-Dokumente');
+    }
+    // Wenn filterType === 'all' oder undefined, keine WHERE-Klausel hinzufügen
+    
+    query += ` ORDER BY d.created_at DESC`;
+    
+    console.log('📋 SQL Query:', query);
+    console.log('📋 Query Params:', queryParams);
+    
+    db.all(query, queryParams, (err, rows) => {
         if (err) {
             console.error('❌ Datenbank-Fehler beim Laden aller Dokumente:', err);
             return res.status(500).json({ error: 'Datenbankfehler: ' + err.message });
@@ -1036,8 +1061,8 @@ app.get('/api/all-documents', (req, res) => {
                 id: doc.id,
                 full_name: doc.full_name,
                 created_by: doc.created_by,
-                purpose: doc.purpose,
-                document_type: doc.document_type
+                document_type: doc.document_type,
+                template_name: doc.template_name
             })));
         }
         
@@ -2125,10 +2150,43 @@ app.post('/api/create-document', (req, res) => {
 // Dokumente eines Benutzers abrufen (mit Debug)
 app.get('/api/documents/:username', (req, res) => {
     const { username } = req.params;
-    console.log('📄 /api/documents/:username aufgerufen für:', username);
+    const { filterType, templateId } = req.query;
     
-    db.all('SELECT * FROM documents WHERE created_by = ? ORDER BY created_at DESC',
-           [username], (err, rows) => {
+    console.log('📄 /api/documents/:username aufgerufen für:', username);
+    console.log('🔍 Filter:', { filterType, templateId });
+    
+    let query = `
+        SELECT 
+            d.*,
+            gt.name as template_name,
+            gt.description as template_description
+        FROM documents d
+        LEFT JOIN template_responses tr ON d.template_response_id = tr.id
+        LEFT JOIN gdocs_templates gt ON tr.template_id = gt.id
+        WHERE d.created_by = ?
+    `;
+    let queryParams = [username];
+    
+    // Filter basierend auf Typ anwenden
+    if (filterType === 'manual') {
+        query += ` AND d.document_type = 'manual'`;
+        console.log('🔍 Filter: Nur manuelle Dokumente');
+    } else if (filterType === 'template' && templateId) {
+        query += ` AND tr.template_id = ?`;
+        queryParams.push(templateId);
+        console.log('🔍 Filter: Nur Template ID', templateId);
+    } else if (filterType === 'template') {
+        query += ` AND d.document_type = 'template'`;
+        console.log('🔍 Filter: Alle Fragebogen-Dokumente');
+    }
+    // Wenn filterType === 'all' oder undefined, keine zusätzlichen Filter
+    
+    query += ` ORDER BY d.created_at DESC`;
+    
+    console.log('📋 SQL Query:', query);
+    console.log('📋 Query Params:', queryParams);
+    
+    db.all(query, queryParams, (err, rows) => {
         if (err) {
             console.error('❌ Datenbank-Fehler beim Laden der Dokumente:', err);
             return res.status(500).json({ error: 'Datenbankfehler: ' + err.message });
@@ -2136,7 +2194,12 @@ app.get('/api/documents/:username', (req, res) => {
         
         console.log('📊 Dokumente gefunden für', username + ':', rows ? rows.length : 'null');
         if (rows && rows.length > 0) {
-            console.log('📋 Erste 3 Dokumente:', rows.slice(0, 3));
+            console.log('📋 Erste 3 Dokumente:', rows.slice(0, 3).map(doc => ({
+                id: doc.id,
+                full_name: doc.full_name,
+                document_type: doc.document_type,
+                template_name: doc.template_name
+            })));
         }
         
         res.json(rows || []);
@@ -2304,6 +2367,45 @@ app.get('/api/available-templates/:rank', (req, res) => {
             return res.status(500).json({ error: 'Datenbankfehler' });
         }
         res.json(rows || []);
+    });
+});
+
+// Template-Typen für Filterung abrufen
+app.get('/api/template-types', (req, res) => {
+    console.log('📋 /api/template-types aufgerufen - Lade verfügbare Template-Typen');
+    
+    // Alle Templates mit Anzahl der zugehörigen Dokumente laden
+    const query = `
+        SELECT 
+            gt.id,
+            gt.name,
+            gt.description,
+            COUNT(d.id) as document_count
+        FROM gdocs_templates gt
+        LEFT JOIN template_responses tr ON gt.id = tr.template_id
+        LEFT JOIN documents d ON tr.id = d.template_response_id
+        GROUP BY gt.id, gt.name, gt.description
+        ORDER BY gt.name ASC
+    `;
+    
+    db.all(query, [], (err, templates) => {
+        if (err) {
+            console.error('❌ Fehler beim Laden der Template-Typen:', err);
+            return res.status(500).json({ error: 'Datenbankfehler: ' + err.message });
+        }
+        
+        console.log('📊 Template-Typen gefunden:', templates ? templates.length : 'null');
+        
+        // Zusätzlich manuelle Dokumente zählen
+        db.get(`SELECT COUNT(*) as count FROM documents WHERE document_type = 'manual'`, [], (err, manualCount) => {
+            const result = {
+                templates: templates || [],
+                manualDocumentsCount: manualCount ? manualCount.count : 0
+            };
+            
+            console.log('📋 Template-Typen Antwort:', result);
+            res.json(result);
+        });
     });
 });
 
@@ -2759,6 +2861,7 @@ process.on('SIGINT', () => {
     });
 
 });
+
 
 
 
