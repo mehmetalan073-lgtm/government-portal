@@ -1,7 +1,7 @@
 {
     "name": "government-portal-backend",
     "version": "1.0.0",
-    "description": "Regierungspanel mit SQL-Datenbank",
+    "description": "Regierungspanel",
     "main": "server.js",
     "scripts": {
         "start": "node server.js",
@@ -21,3 +21,4 @@
         "nodemon": "^3.0.2"
     }
 }
+
