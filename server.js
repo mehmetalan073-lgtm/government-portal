@@ -8,10 +8,15 @@ const multer = require('multer');
 const fs = require('fs');
 
 
-// Multer-Konfiguration für DOCX-Upload
+// ✅ PERSISTENTE UPLOAD-VERZEICHNISSE
+const uploadsBasePath = process.env.NODE_ENV === 'production' 
+    ? '/app/data/uploads'
+    : 'uploads';
+
+// Multer-Konfiguration für DOCX-Upload - GEÄNDERT
 const storage = multer.diskStorage({
     destination: function (req, file, cb) {
-        const uploadDir = 'uploads/templates/';
+        const uploadDir = path.join(uploadsBasePath, 'templates/');
         if (!fs.existsSync(uploadDir)) {
             fs.mkdirSync(uploadDir, { recursive: true });
         }
@@ -42,8 +47,8 @@ const Docxtemplater = require('docxtemplater');
 const PizZip = require('pizzip');
 const mammoth = require('mammoth');
 
-// Generierte Dateien Verzeichnis
- const generatedDir = 'uploads/generated/';
+ // Generierte Dateien Verzeichnis - GEÄNDERT
+const generatedDir = path.join(uploadsBasePath, 'generated/');
 if (!fs.existsSync(generatedDir)) {
     fs.mkdirSync(generatedDir, { recursive: true });
 }
@@ -63,8 +68,22 @@ app.get('/', (req, res) => {
     res.sendFile(path.join(__dirname, 'index.html'));
 });
 
-// SQLite Datenbank initialisieren
- const db = new sqlite3.Database('government_portal.db');
+// ✅ RAILWAY VOLUME PATH für persistente SQLite
+const dbPath = process.env.NODE_ENV === 'production' 
+    ? '/app/data/government_portal.db'  // Railway Volume Path
+    : 'government_portal.db';           // Lokaler Development Path
+
+// Stelle sicher, dass das data-Verzeichnis existiert
+const dataDir = path.dirname(dbPath);
+if (!fs.existsSync(dataDir)) {
+    fs.mkdirSync(dataDir, { recursive: true });
+    console.log('📁 Data-Verzeichnis erstellt:', dataDir);
+}
+
+console.log('🗃️ SQLite Datenbank-Pfad:', dbPath);
+
+// SQLite Datenbank initialisieren - GEÄNDERT
+const db = new sqlite3.Database(dbPath);
 
 // Log-Eintrag erstellen (Hilfsfunktion)
 function createLogEntry(action, performedBy, userRank, details, targetUser = null, ipAddress = null) {
@@ -2834,10 +2853,34 @@ app.post('/admin/sql', express.urlencoded({ extended: true }), (req, res) => {
         });
     }
 });
+
+// Debug-Endpoint für Storage-Status
+app.get('/api/debug/storage', (req, res) => {
+    const stats = {
+        dbPath: dbPath,
+        dbExists: fs.existsSync(dbPath),
+        uploadsPath: uploadsBasePath,
+        uploadsExists: fs.existsSync(uploadsBasePath),
+        volumeMount: process.env.RAILWAY_VOLUME_MOUNT_PATH,
+        nodeEnv: process.env.NODE_ENV
+    };
+    
+    if (fs.existsSync(dataDir)) {
+        stats.dataDirectoryContents = fs.readdirSync(dataDir);
+    }
+    
+    res.json(stats);
+});
+
 // Server starten
 app.listen(PORT, '0.0.0.0', () => {
-    console.log(`🏛️ Regierungspanel v23-FIXED Backend läuft auf http://localhost:${PORT}`);
-    console.log(`📊 SQLite Datenbank: government_portal.db`);
+// Server starten
+app.listen(PORT, '0.0.0.0', () => {
+    console.log(`🏛️ Regierungspanel v23-RAILWAY läuft auf http://localhost:${PORT}`);
+    console.log(`📊 SQLite Datenbank-Pfad: ${dbPath}`);
+    console.log(`📁 Upload-Basis-Pfad: ${uploadsBasePath}`);
+    console.log(`🌍 Environment: ${process.env.NODE_ENV}`);
+    console.log(`💾 Railway Volume Mount: ${process.env.RAILWAY_VOLUME_MOUNT_PATH || 'Nicht gesetzt'}`);
     console.log(`📈 Rang-System aktiviert mit 8 verschiedenen Rängen`);
     console.log(`✅ Username-Änderungen aktiviert`);
     console.log(`📜 System-Log aktiviert`);
@@ -2845,9 +2888,27 @@ app.listen(PORT, '0.0.0.0', () => {
     console.log(`📋 Erweiterte Fragebogen-Funktionalität aktiviert`);
     console.log(`🔍 Debug-Modus für Dokumente-System aktiviert`);
     console.log(`🧪 Test-Endpoint verfügbar: GET /api/test-db`);
-    console.log(`🗑️ FIXED: Dokument-Löschung funktioniert jetzt (DELETE /api/documents/:id)`);
-    console.log(`📋 FIXED: Fragebögen werden jetzt automatisch als Dokumente gespeichert`);
-    console.log(`✅ Version 23-FIXED - Alle Dokument-Funktionen arbeiten korrekt`);
+    console.log(`✅ Version 23-RAILWAY - Railway Volume Support aktiviert`);
+    
+    // Teste Datenbankverbindung
+    db.get("SELECT datetime('now') as current_time", (err, row) => {
+        if (err) {
+            console.error('❌ Datenbank-Test fehlgeschlagen:', err);
+        } else {
+            console.log('✅ Datenbank funktioniert, Zeit:', row.current_time);
+        }
+    });
+    
+    // Teste Volume-Schreibberechtigung
+    const testFile = path.join(dataDir, 'test-write.txt');
+    fs.writeFile(testFile, 'Railway Volume Test', (err) => {
+        if (err) {
+            console.error('❌ Volume-Schreibtest fehlgeschlagen:', err);
+        } else {
+            console.log('✅ Volume-Schreibberechtigung OK');
+            fs.unlinkSync(testFile); // Test-Datei wieder löschen
+        }
+    });
 });
 
 // Graceful shutdown
@@ -2861,6 +2922,7 @@ process.on('SIGINT', () => {
     });
 
 });
+
 
 
 
