@@ -1,4 +1,4 @@
-// sserver.js v23 - FIXES: Dokument-Löschung + Fragebogen als Dokumente
+// ssserver.js v23 - FIXES: Dokument-Löschung + Fragebogen als Dokumente
 const express = require('express');
 const sqlite3 = require('sqlite3').verbose();
 const bcrypt = require('bcrypt');
@@ -2920,6 +2920,7 @@ process.on('SIGINT', () => {
     });
 
 });
+
 
 
 
