@@ -2874,8 +2874,6 @@ app.get('/api/debug/storage', (req, res) => {
 
 // Server starten
 app.listen(PORT, '0.0.0.0', () => {
-// Server starten
-app.listen(PORT, '0.0.0.0', () => {
     console.log(`🏛️ Regierungspanel v23-RAILWAY läuft auf http://localhost:${PORT}`);
     console.log(`📊 SQLite Datenbank-Pfad: ${dbPath}`);
     console.log(`📁 Upload-Basis-Pfad: ${uploadsBasePath}`);
@@ -2922,6 +2920,7 @@ process.on('SIGINT', () => {
     });
 
 });
+
 
 
 
