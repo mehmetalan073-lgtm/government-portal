@@ -1601,7 +1601,7 @@ db.run(`CREATE TABLE IF NOT EXISTS users (
     // Counter-Tabelle für File-Nummern - Fügen Sie in db.serialize() hinzu
 
 // File Counter Tabelle für automatische Nummern
-ddb.run(`CREATE TABLE IF NOT EXISTS file_counters (
+db.run(`CREATE TABLE IF NOT EXISTS file_counters (
     id SERIAL PRIMARY KEY,
     prefix TEXT NOT NULL UNIQUE,
     current_number INTEGER DEFAULT 0,
@@ -2974,6 +2974,7 @@ process.on('SIGINT', () => {
     });
 
 });
+
 
 
 
