@@ -2929,7 +2929,7 @@ app.get('/api/debug/storage', (req, res) => {
 // Server starten
 app.listen(PORT, '0.0.0.0', () => {
     console.log(`🏛️ Regierungspanel v23-RAILWAY läuft auf http://localhost:${PORT}`);
-    console.log(`📊 SQLite Datenbank-Pfad: ${dbPath}`);
+    console.log(`🗃️ PostgreSQL-Verbindung aktiv`);
     console.log(`📁 Upload-Basis-Pfad: ${uploadsBasePath}`);
     console.log(`🌍 Environment: ${process.env.NODE_ENV}`);
     console.log(`💾 Railway Volume Mount: ${process.env.RAILWAY_VOLUME_MOUNT_PATH || 'Nicht gesetzt'}`);
@@ -2974,6 +2974,7 @@ process.on('SIGINT', () => {
     });
 
 });
+
 
 
 
