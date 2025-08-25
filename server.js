@@ -88,10 +88,77 @@ const db = {
         if (err) {
           callback(err);
         } else {
+          // SQLite-kompatible Wrapper (KORRIGIERT)
+const db = {
+  run: (query, params, callback) => {
+    if (typeof params === 'function') {
+      callback = params;
+      params = [];
+    }
+    
+    pool.query(query, params, (err, result) => {
+      if (callback) {
+        if (err) {
+          callback(err);
+        } else {
+          // KORRIGIERT: Für INSERT Queries mit RETURNING
+          let lastID = null;
+          if (result.rows && result.rows.length > 0 && result.rows[0].id) {
+            lastID = result.rows[0].id;
+          }
+          
           const context = {
-            lastID: result.rows[0]?.id || null,
+            lastID: lastID,
             changes: result.rowCount || 0
           };
+          callback.call(context, null);
+        }
+      }
+    });
+  },
+
+  get: (query, params, callback) => {
+    if (typeof params === 'function') {
+      callback = params;
+      params = [];
+    }
+    
+    pool.query(query, params, (err, result) => {
+      if (callback) {
+        if (err) {
+          callback(err);
+        } else {
+          callback(null, result.rows[0] || null);
+        }
+      }
+    });
+  },
+
+  all: (query, params, callback) => {
+    if (typeof params === 'function') {
+      callback = params;
+      params = [];
+    }
+    
+    pool.query(query, params, (err, result) => {
+      if (callback) {
+        if (err) {
+          callback(err);
+        } else {
+          callback(null, result.rows || []);
+        }
+      }
+    });
+  },
+
+  serialize: (callback) => {
+    if (callback) callback();
+  },
+
+  close: (callback) => {
+    pool.end(callback);
+  }
+};
           callback.call(context, null);
         }
       }
@@ -2911,19 +2978,25 @@ app.post('/admin/sql', express.urlencoded({ extended: true }), (req, res) => {
 // Debug-Endpoint für Storage-Status
 app.get('/api/debug/storage', (req, res) => {
     const stats = {
-        dbPath: dbPath,
-        dbExists: fs.existsSync(dbPath),
+        databaseType: 'PostgreSQL',
+        databaseUrl: process.env.DATABASE_URL ? 'Configured' : 'Missing',
         uploadsPath: uploadsBasePath,
         uploadsExists: fs.existsSync(uploadsBasePath),
-        volumeMount: process.env.RAILWAY_VOLUME_MOUNT_PATH,
-        nodeEnv: process.env.NODE_ENV
+        nodeEnv: process.env.NODE_ENV,
+        railwayEnvironment: process.env.RAILWAY_ENVIRONMENT || 'Not set'
     };
     
-    if (fs.existsSync(dataDir)) {
-        stats.dataDirectoryContents = fs.readdirSync(dataDir);
-    }
-    
-    res.json(stats);
+    // Test PostgreSQL connection
+    pool.query('SELECT NOW() as current_time', (err, result) => {
+        if (err) {
+            stats.databaseConnection = 'Failed: ' + err.message;
+        } else {
+            stats.databaseConnection = 'Connected';
+            stats.databaseTime = result.rows[0].current_time;
+        }
+        
+        res.json(stats);
+    });
 });
 
 // Server starten
@@ -2974,6 +3047,7 @@ process.on('SIGINT', () => {
     });
 
 });
+
 
 
 
