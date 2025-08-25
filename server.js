@@ -68,22 +68,76 @@ app.get('/', (req, res) => {
     res.sendFile(path.join(__dirname, 'index.html'));
 });
 
-// ✅ RAILWAY VOLUME PATH für persistente SQLite
-const dbPath = process.env.NODE_ENV === 'production' 
-    ? '/app/data/government_portal.db'  // Railway Volume Path
-    : 'government_portal.db';           // Lokaler Development Path
+// PostgreSQL Connection Pool
+const pool = new Pool({
+  connectionString: process.env.DATABASE_URL,
+  ssl: process.env.NODE_ENV === 'production' ? { rejectUnauthorized: false } : false
+});
 
-// Stelle sicher, dass das data-Verzeichnis existiert
-const dataDir = path.dirname(dbPath);
-if (!fs.existsSync(dataDir)) {
-    fs.mkdirSync(dataDir, { recursive: true });
-    console.log('📁 Data-Verzeichnis erstellt:', dataDir);
-}
+console.log('🗃️ PostgreSQL-Verbindung initialisiert');
 
-console.log('🗃️ SQLite Datenbank-Pfad:', dbPath);
+// SQLite-kompatible Wrapper
+const db = {
+  run: (query, params, callback) => {
+    if (typeof params === 'function') {
+      callback = params;
+      params = [];
+    }
+    pool.query(query, params, (err, result) => {
+      if (callback) {
+        if (err) {
+          callback(err);
+        } else {
+          const context = {
+            lastID: result.rows[0]?.id || null,
+            changes: result.rowCount || 0
+          };
+          callback.call(context, null);
+        }
+      }
+    });
+  },
 
-// SQLite Datenbank initialisieren - GEÄNDERT
-const db = new sqlite3.Database(dbPath);
+  get: (query, params, callback) => {
+    if (typeof params === 'function') {
+      callback = params;
+      params = [];
+    }
+    pool.query(query, params, (err, result) => {
+      if (callback) {
+        if (err) {
+          callback(err);
+        } else {
+          callback(null, result.rows[0] || null);
+        }
+      }
+    });
+  },
+
+  all: (query, params, callback) => {
+    if (typeof params === 'function') {
+      callback = params;
+      params = [];
+    }
+    pool.query(query, params, (err, result) => {
+      if (callback) {
+        if (err) {
+          callback(err);
+        } else {
+          callback(null, result.rows || []);
+        }
+      }
+    });
+  },
+
+  serialize: (callback) => {
+    if (callback) callback();
+  },
+
+  close: (callback) => {
+    pool.end(callback);
+  }
+};
 
 // Log-Eintrag erstellen (Hilfsfunktion)
 function createLogEntry(action, performedBy, userRank, details, targetUser = null, ipAddress = null) {
@@ -1439,7 +1493,7 @@ app.post('/api/log-document-view', (req, res) => {
 db.serialize(() => {
     // Users Tabelle mit Rang-System
 db.run(`CREATE TABLE IF NOT EXISTS users (
-    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    id SERIAL PRIMARY KEY,
     username TEXT UNIQUE NOT NULL,
     password_hash TEXT NOT NULL,
     full_name TEXT NOT NULL,
@@ -1447,7 +1501,7 @@ db.run(`CREATE TABLE IF NOT EXISTS users (
     role TEXT DEFAULT 'user',
     status TEXT DEFAULT 'approved',
     dark_mode INTEGER DEFAULT 0,
-    created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
     approved_by TEXT,
     approved_at DATETIME
 )`, (err) => {
@@ -1484,20 +1538,20 @@ db.run(`CREATE TABLE IF NOT EXISTS users (
 
     // Registrations Tabelle
    db.run(`CREATE TABLE IF NOT EXISTS registrations (
-    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    id SERIAL PRIMARY KEY,
     username TEXT UNIQUE NOT NULL,
     password_hash TEXT NOT NULL,
     full_name TEXT NOT NULL,
     reason TEXT NOT NULL,
     status TEXT DEFAULT 'pending',
-    created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
     approved_by TEXT,
     approved_at DATETIME
 )`);
 
     // Documents Tabelle (erweitert mit template_response_id)
     db.run(`CREATE TABLE IF NOT EXISTS documents (
-        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        id SERIAL PRIMARY KEY,
         full_name TEXT NOT NULL,
         birth_date TEXT,
         address TEXT,
@@ -1509,7 +1563,7 @@ db.run(`CREATE TABLE IF NOT EXISTS users (
         created_by TEXT NOT NULL,
         template_response_id INTEGER,
         document_type TEXT DEFAULT 'manual',
-        created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+        created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
         FOREIGN KEY (created_by) REFERENCES users(username),
         FOREIGN KEY (template_response_id) REFERENCES template_responses(id)
     )`, (err) => {
@@ -1547,12 +1601,12 @@ db.run(`CREATE TABLE IF NOT EXISTS users (
     // Counter-Tabelle für File-Nummern - Fügen Sie in db.serialize() hinzu
 
 // File Counter Tabelle für automatische Nummern
-db.run(`CREATE TABLE IF NOT EXISTS file_counters (
-    id INTEGER PRIMARY KEY AUTOINCREMENT,
+ddb.run(`CREATE TABLE IF NOT EXISTS file_counters (
+    id SERIAL PRIMARY KEY,
     prefix TEXT NOT NULL UNIQUE,
     current_number INTEGER DEFAULT 0,
-    created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
-    updated_at DATETIME DEFAULT CURRENT_TIMESTAMP
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
 )`, (err) => {
     if (!err) {
         console.log('✅ File Counters Tabelle erstellt');
@@ -1575,18 +1629,18 @@ db.run(`CREATE TABLE IF NOT EXISTS file_counters (
 
 // Vereinfachte File Counter Tabelle
 db.run(`CREATE TABLE IF NOT EXISTS file_counters (
-    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    id SERIAL PRIMARY KEY,
     prefix TEXT NOT NULL UNIQUE,
     current_number INTEGER DEFAULT 0,
-    created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
-    updated_at DATETIME DEFAULT CURRENT_TIMESTAMP
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
 )`, (err) => {
     if (!err) {
         console.log('✅ File Counters Tabelle erstellt');
         
         // Nur B-Counter initialisieren
-        db.run(`INSERT OR IGNORE INTO file_counters (prefix, current_number) VALUES ('B', 0)`, 
-               (err) => {
+        db.run(`INSERT INTO file_counters (prefix, current_number) VALUES ($1, $2) ON CONFLICT (prefix) DO NOTHING`, 
+       ['B', 0], (err) => {
             if (!err) {
                 console.log('✅ B-Counter (Bewertung) initialisiert');
             }
@@ -1614,12 +1668,12 @@ function getRankSuffix(userRank) {
 
     // Username Change Requests Tabelle
     db.run(`CREATE TABLE IF NOT EXISTS username_change_requests (
-        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        id SERIAL PRIMARY KEY,
         current_username TEXT NOT NULL,
         new_username TEXT NOT NULL,
         reason TEXT NOT NULL,
         status TEXT DEFAULT 'pending',
-        created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+        created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
         approved_by TEXT,
         approved_at DATETIME
     )`, (err) => {
@@ -1630,7 +1684,7 @@ function getRankSuffix(userRank) {
 
     // System Log Tabelle
     db.run(`CREATE TABLE IF NOT EXISTS system_log (
-        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        id SERIAL PRIMARY KEY,
         action TEXT NOT NULL,
         performed_by TEXT NOT NULL,
         user_rank TEXT,
@@ -1638,7 +1692,7 @@ function getRankSuffix(userRank) {
         target_user TEXT,
         ip_address TEXT,
         session_id TEXT,
-        created_at DATETIME DEFAULT CURRENT_TIMESTAMP
+        created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
     )`, (err) => {
         if (!err) {
             console.log('✅ System Log Tabelle erstellt');
@@ -1647,7 +1701,7 @@ function getRankSuffix(userRank) {
 
 // G-Docs Templates Tabelle - MIGRATION FIX
 db.run(`CREATE TABLE IF NOT EXISTS gdocs_templates (
-    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    id SERIAL PRIMARY KEY,
     name TEXT NOT NULL,
     description TEXT,
     file_path TEXT NOT NULL,
@@ -1655,7 +1709,7 @@ db.run(`CREATE TABLE IF NOT EXISTS gdocs_templates (
     available_ranks TEXT NOT NULL,
     questions TEXT,
     created_by TEXT NOT NULL,
-    created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
     FOREIGN KEY (created_by) REFERENCES users(username)
 )`, (err) => {
     if (err) {
@@ -1686,7 +1740,7 @@ db.run(`CREATE TABLE IF NOT EXISTS gdocs_templates (
                                     available_ranks TEXT NOT NULL,
                                     questions TEXT,
                                     created_by TEXT NOT NULL,
-                                    created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+                                    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
                                     FOREIGN KEY (created_by) REFERENCES users(username)
                                 )`, (err) => {
                                     if (!err) {
@@ -1738,11 +1792,11 @@ db.run(`CREATE TABLE IF NOT EXISTS gdocs_templates (
 
     // Template Responses Tabelle (für gespeicherte Antworten)
     db.run(`CREATE TABLE IF NOT EXISTS template_responses (
-        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        id SERIAL PRIMARY KEY,
         template_id INTEGER NOT NULL,
         answers TEXT NOT NULL,
         submitted_by TEXT NOT NULL,
-        created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+        created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
         FOREIGN KEY (template_id) REFERENCES gdocs_templates(id),
         FOREIGN KEY (submitted_by) REFERENCES users(username)
     )`, (err) => {
@@ -1756,9 +1810,9 @@ db.run(`CREATE TABLE IF NOT EXISTS gdocs_templates (
     db.get("SELECT * FROM users WHERE username = 'admin'", (err, user) => {
         if (!user) {
             // Admin existiert nicht, erstelle ihn
-            db.run(`INSERT INTO users (username, password_hash, full_name, rank, role, status) 
-        VALUES ('admin', ?, 'Systemadministrator', 'admin', 'admin', 'approved')`, 
-        [adminPassword], (err) => {
+db.run(`INSERT INTO users (username, password_hash, full_name, rank, role, status) 
+        VALUES ($1, $2, $3, $4, $5, $6)`, 
+        ['admin', adminPassword, 'Systemadministrator', 'admin', 'admin', 'approved'], (err) => {
                         if (!err) {
                             console.log('✅ Admin-User erfolgreich erstellt');
                         }
@@ -1781,7 +1835,7 @@ db.run(`CREATE TABLE IF NOT EXISTS gdocs_templates (
 app.post('/api/login', (req, res) => {
     const { username, password } = req.body;
     
-    db.get('SELECT * FROM users WHERE username = ? AND status = "approved"', [username], (err, user) => {
+    db.get('SELECT * FROM users WHERE username = $1 AND status = $2', [username, 'approved'], (err, user) => {
         if (err) {
             return res.status(500).json({ error: 'Datenbankfehler' });
         }
@@ -2144,7 +2198,7 @@ app.post('/api/create-document', (req, res) => {
     // ✅ KORRIGIERTES SQL - Parameter-Anzahl stimmt jetzt überein
     db.run(`INSERT INTO documents (full_name, birth_date, address, phone, 
         purpose, application_date, additional_info, created_by, document_type) 
-        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+        VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)`,
         [fullName, birthDate, address, phone, purpose, 
          applicationDate, additional, createdBy, 'manual'],
             //                                    ^^^^^^^^^ 
@@ -2920,6 +2974,7 @@ process.on('SIGINT', () => {
     });
 
 });
+
 
 
 
