@@ -78,6 +78,7 @@ const pool = new Pool({
 console.log('🗃️ PostgreSQL-Verbindung initialisiert');
 
 // SQLite-kompatible Wrapper (KORRIGIERT)
+// SQLite-kompatible Wrapper (KORRIGIERT)
 const db = {
   run: (query, params, callback) => {
     if (typeof params === 'function') {
@@ -123,52 +124,6 @@ const db = {
       params = [];
     }
     
-    pool.query(query, params, (err, result) => {
-      if (callback) {
-        if (err) {
-          callback(err);
-        } else {
-          callback(null, result.rows || []);
-        }
-      }
-    });
-  },
-
-  serialize: (callback) => {
-    if (callback) callback();
-  },
-
-  close: (callback) => {
-    pool.end(callback);
-  }
-};
-          callback.call(context, null);
-        }
-      }
-    });
-  },
-
-  get: (query, params, callback) => {
-    if (typeof params === 'function') {
-      callback = params;
-      params = [];
-    }
-    pool.query(query, params, (err, result) => {
-      if (callback) {
-        if (err) {
-          callback(err);
-        } else {
-          callback(null, result.rows[0] || null);
-        }
-      }
-    });
-  },
-
-  all: (query, params, callback) => {
-    if (typeof params === 'function') {
-      callback = params;
-      params = [];
-    }
     pool.query(query, params, (err, result) => {
       if (callback) {
         if (err) {
@@ -3020,6 +2975,7 @@ process.on('SIGINT', () => {
         process.exit(0);
     });
 });
+
 
 
 
