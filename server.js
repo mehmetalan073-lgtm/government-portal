@@ -1495,320 +1495,174 @@ app.post('/api/log-document-view', (req, res) => {
 });
 
 // Tabellen erstellen und migrieren
-db.serialize(() => {
-    // Users Tabelle mit Rang-System
-db.run(`CREATE TABLE IF NOT EXISTS users (
-    id SERIAL PRIMARY KEY,
-    username TEXT UNIQUE NOT NULL,
-    password_hash TEXT NOT NULL,
-    full_name TEXT NOT NULL,
-    rank TEXT DEFAULT 'user',
-    role TEXT DEFAULT 'user',
-    status TEXT DEFAULT 'approved',
-    dark_mode INTEGER DEFAULT 0,
-    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-    approved_by TEXT,
-    approved_at DATETIME
-)`, (err) => {
-        if (err) {
-            console.log('Users Tabelle existiert bereits');
-        }
-        
-        // Migration: Füge fehlende Spalten hinzu
-        db.all("PRAGMA table_info(users)", (err, columns) => {
-            if (!err && columns) {
-                const columnNames = columns.map(col => col.name);
-                
-                // Füge rank Spalte hinzu falls sie fehlt
-                if (!columnNames.includes('rank')) {
-                    db.run("ALTER TABLE users ADD COLUMN rank TEXT DEFAULT 'user'", (err) => {
-                        if (!err) {
-                            console.log('✅ rank Spalte erfolgreich hinzugefügt');
-                            db.run("UPDATE users SET rank = 'admin' WHERE username = 'admin'");
-                        }
-                    });
-                }
-                
-                // Füge dark_mode Spalte hinzu falls sie fehlt
-                if (!columnNames.includes('dark_mode')) {
-                    db.run("ALTER TABLE users ADD COLUMN dark_mode INTEGER DEFAULT 0", (err) => {
-                        if (!err) {
-                            console.log('✅ dark_mode Spalte erfolgreich hinzugefügt');
-                        }
-                    });
-                }
-            }
-        });
-    });
-
-    // Registrations Tabelle
-   db.run(`CREATE TABLE IF NOT EXISTS registrations (
-    id SERIAL PRIMARY KEY,
-    username TEXT UNIQUE NOT NULL,
-    password_hash TEXT NOT NULL,
-    full_name TEXT NOT NULL,
-    reason TEXT NOT NULL,
-    status TEXT DEFAULT 'pending',
-    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-    approved_by TEXT,
-    approved_at DATETIME
-)`);
-
-    // Documents Tabelle (erweitert mit template_response_id)
-    db.run(`CREATE TABLE IF NOT EXISTS documents (
-        id SERIAL PRIMARY KEY,
-        full_name TEXT NOT NULL,
-        birth_date TEXT,
-        address TEXT,
-        phone TEXT,
-        email TEXT,
-        purpose TEXT,
-        application_date TEXT,
-        additional_info TEXT,
-        created_by TEXT NOT NULL,
-        template_response_id INTEGER,
-        document_type TEXT DEFAULT 'manual',
-        created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-        FOREIGN KEY (created_by) REFERENCES users(username),
-        FOREIGN KEY (template_response_id) REFERENCES template_responses(id)
-    )`, (err) => {
-        if (err) {
-            console.error('❌ Fehler beim Erstellen der Documents Tabelle:', err);
-        } else {
-            console.log('✅ Documents Tabelle erstellt/verifiziert');
-            
-            // Migration: Füge template_response_id hinzu falls fehlend
-            db.all("PRAGMA table_info(documents)", (err, columns) => {
-                if (!err && columns) {
-                    const columnNames = columns.map(col => col.name);
-                    console.log('📊 Documents Tabellen-Struktur:', columnNames);
-                    
-                    if (!columnNames.includes('template_response_id')) {
-                        db.run("ALTER TABLE documents ADD COLUMN template_response_id INTEGER", (err) => {
-                            if (!err) {
-                                console.log('✅ template_response_id Spalte hinzugefügt');
-                            }
-                        });
-                    }
-                    
-                    if (!columnNames.includes('document_type')) {
-                        db.run("ALTER TABLE documents ADD COLUMN document_type TEXT DEFAULT 'manual'", (err) => {
-                            if (!err) {
-                                console.log('✅ document_type Spalte hinzugefügt');
-                            }
-                        });
-                    }
-                }
-            });
-        }
-    });
-
-    // Counter-Tabelle für File-Nummern - Fügen Sie in db.serialize() hinzu
-
-// File Counter Tabelle für automatische Nummern
-db.run(`CREATE TABLE IF NOT EXISTS file_counters (
-    id SERIAL PRIMARY KEY,
-    prefix TEXT NOT NULL UNIQUE,
-    current_number INTEGER DEFAULT 0,
-    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-    updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
-)`, (err) => {
-    if (!err) {
-        console.log('✅ File Counters Tabelle erstellt');
-        
-        // Initialisiere Standard-Counter falls nicht vorhanden
-        const defaultPrefixes = ['B', 'A', 'C', 'D', 'E'];
-        
-        defaultPrefixes.forEach(prefix => {
-            db.run(`INSERT OR IGNORE INTO file_counters (prefix, current_number) VALUES ($1, 0)`, 
-                   [prefix], (err) => {
-                if (!err) {
-                    console.log(`✅ Counter für Prefix "${prefix}" initialisiert`);
-                }
-            });
-        });
-    }
-});
-
-// Vereinfachter File-Counter - Ersetzen Sie die getNextFileNumber Funktion
-
-// Vereinfachte File Counter Tabelle
-db.run(`CREATE TABLE IF NOT EXISTS file_counters (
-    id SERIAL PRIMARY KEY,
-    prefix TEXT NOT NULL UNIQUE,
-    current_number INTEGER DEFAULT 0,
-    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-    updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
-)`, (err) => {
-    if (!err) {
-        console.log('✅ File Counters Tabelle erstellt');
-        
-        // Nur B-Counter initialisieren
-        db.run(`INSERT INTO file_counters (prefix, current_number) VALUES ($1, $2) ON CONFLICT (prefix) DO NOTHING`, 
-       ['B', 0], (err) => {
-            if (!err) {
-                console.log('✅ B-Counter (Bewertung) initialisiert');
-            }
-        });
-    }
-});
-
-// Entferne die getRankSuffix Funktion - wird nicht mehr benötigt
-
-// Hilfsfunktion: Rang-Suffix für File-Nummer
-function getRankSuffix(userRank) {
-    const rankSuffixes = {
-        'admin': 'ADMIN',
-        'nc-team': 'NCTEAM',
-        'president': 'PRES',
-        'vice-president': 'VPRES',
-        'kabinettsmitglied': 'KABINETT',
-        'socom-operator': 'SOCOM',
-        'user': 'USER',
-        'besucher': 'VISITOR'
-    };
+// ✅ POSTGRESQL TABELLEN ERSTELLEN
+app.get('/api/setup-database', async (req, res) => {
+    console.log('🗃️ Erstelle PostgreSQL Tabellen...');
     
-    return rankSuffixes[userRank.toLowerCase()] || 'GENERAL';
-}
+    try {
+        // 1. Users Tabelle
+        await pool.query(`
+            CREATE TABLE IF NOT EXISTS users (
+                id SERIAL PRIMARY KEY,
+                username TEXT UNIQUE NOT NULL,
+                password_hash TEXT NOT NULL,
+                full_name TEXT NOT NULL,
+                rank TEXT DEFAULT 'user',
+                role TEXT DEFAULT 'user',
+                status TEXT DEFAULT 'approved',
+                dark_mode INTEGER DEFAULT 0,
+                created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+                approved_by TEXT,
+                approved_at TIMESTAMP
+            )
+        `);
+        console.log('✅ Users Tabelle erstellt');
 
-    // Username Change Requests Tabelle
-    db.run(`CREATE TABLE IF NOT EXISTS username_change_requests (
-        id SERIAL PRIMARY KEY,
-        current_username TEXT NOT NULL,
-        new_username TEXT NOT NULL,
-        reason TEXT NOT NULL,
-        status TEXT DEFAULT 'pending',
-        created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-        approved_by TEXT,
-        approved_at DATETIME
-    )`, (err) => {
-        if (!err) {
-            console.log('✅ Username Change Requests Tabelle erstellt');
-        }
-    });
+        // 2. Registrations Tabelle
+        await pool.query(`
+            CREATE TABLE IF NOT EXISTS registrations (
+                id SERIAL PRIMARY KEY,
+                username TEXT UNIQUE NOT NULL,
+                password_hash TEXT NOT NULL,
+                full_name TEXT NOT NULL,
+                reason TEXT NOT NULL,
+                status TEXT DEFAULT 'pending',
+                created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+                approved_by TEXT,
+                approved_at TIMESTAMP
+            )
+        `);
+        console.log('✅ Registrations Tabelle erstellt');
 
-    // System Log Tabelle
-    db.run(`CREATE TABLE IF NOT EXISTS system_log (
-        id SERIAL PRIMARY KEY,
-        action TEXT NOT NULL,
-        performed_by TEXT NOT NULL,
-        user_rank TEXT,
-        details TEXT,
-        target_user TEXT,
-        ip_address TEXT,
-        session_id TEXT,
-        created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
-    )`, (err) => {
-        if (!err) {
-            console.log('✅ System Log Tabelle erstellt');
-        }
-    });
+        // 3. Documents Tabelle
+        await pool.query(`
+            CREATE TABLE IF NOT EXISTS documents (
+                id SERIAL PRIMARY KEY,
+                full_name TEXT NOT NULL,
+                birth_date TEXT,
+                address TEXT,
+                phone TEXT,
+                purpose TEXT NOT NULL,
+                application_date TEXT,
+                additional_info TEXT,
+                created_by TEXT NOT NULL,
+                template_response_id INTEGER,
+                document_type TEXT DEFAULT 'manual',
+                generated_docx_path TEXT,
+                generated_filename TEXT,
+                file_number TEXT,
+                preview_html TEXT,
+                created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+            )
+        `);
+        console.log('✅ Documents Tabelle erstellt');
 
-// G-Docs Templates Tabelle - MIGRATION FIX
-db.run(`CREATE TABLE IF NOT EXISTS gdocs_templates (
-    id SERIAL PRIMARY KEY,
-    name TEXT NOT NULL,
-    description TEXT,
-    file_path TEXT NOT NULL,
-    original_filename TEXT,
-    available_ranks TEXT NOT NULL,
-    questions TEXT,
-    created_by TEXT NOT NULL,
-    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-    FOREIGN KEY (created_by) REFERENCES users(username)
-)`, (err) => {
-    if (err) {
-        console.log('📋 gdocs_templates Tabelle existiert bereits, prüfe Migration...');
-        
-        // Migration: Prüfe ob alte gdocs_url Spalte existiert
-        db.all("PRAGMA table_info(gdocs_templates)", (err, columns) => {
-            if (!err && columns) {
-                const columnNames = columns.map(col => col.name);
-                const hasOldUrl = columnNames.includes('gdocs_url');
-                const hasNewPath = columnNames.includes('file_path');
-                
-                if (hasOldUrl && !hasNewPath) {
-                    console.log('🚨 MIGRATION: Lösche alte Tabelle und erstelle neue...');
-                    
-                    // Backup alte Daten
-                    db.all('SELECT * FROM gdocs_templates', (err, oldData) => {
-                        // Lösche alte Tabelle
-                        db.run('DROP TABLE gdocs_templates', (err) => {
-                            if (!err) {
-                                // Erstelle neue Tabelle
-                                db.run(`CREATE TABLE gdocs_templates (
-                                    id INTEGER PRIMARY KEY AUTOINCREMENT,
-                                    name TEXT NOT NULL,
-                                    description TEXT,
-                                    file_path TEXT NOT NULL,
-                                    original_filename TEXT,
-                                    available_ranks TEXT NOT NULL,
-                                    questions TEXT,
-                                    created_by TEXT NOT NULL,
-                                    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-                                    FOREIGN KEY (created_by) REFERENCES users(username)
-                                )`, (err) => {
-                                    if (!err) {
-                                        console.log('✅ Neue gdocs_templates Tabelle erstellt');
-                                    }
-                                });
-                            }
-                        });
-                    });
-                }
-            }
-        });
-    } else {
+        // 4. System Log Tabelle
+        await pool.query(`
+            CREATE TABLE IF NOT EXISTS system_log (
+                id SERIAL PRIMARY KEY,
+                action TEXT NOT NULL,
+                performed_by TEXT NOT NULL,
+                user_rank TEXT,
+                details TEXT,
+                target_user TEXT,
+                ip_address TEXT,
+                session_id TEXT,
+                created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+            )
+        `);
+        console.log('✅ System Log Tabelle erstellt');
+
+        // 5. Username Change Requests Tabelle
+        await pool.query(`
+            CREATE TABLE IF NOT EXISTS username_change_requests (
+                id SERIAL PRIMARY KEY,
+                current_username TEXT NOT NULL,
+                new_username TEXT NOT NULL,
+                reason TEXT NOT NULL,
+                status TEXT DEFAULT 'pending',
+                created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+                approved_by TEXT,
+                approved_at TIMESTAMP
+            )
+        `);
+        console.log('✅ Username Change Requests Tabelle erstellt');
+
+        // 6. G-Docs Templates Tabelle
+        await pool.query(`
+            CREATE TABLE IF NOT EXISTS gdocs_templates (
+                id SERIAL PRIMARY KEY,
+                name TEXT NOT NULL,
+                description TEXT,
+                file_path TEXT NOT NULL,
+                original_filename TEXT,
+                available_ranks TEXT NOT NULL,
+                questions TEXT,
+                created_by TEXT NOT NULL,
+                created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+            )
+        `);
         console.log('✅ G-Docs Templates Tabelle erstellt');
+
+        // 7. Template Responses Tabelle
+        await pool.query(`
+            CREATE TABLE IF NOT EXISTS template_responses (
+                id SERIAL PRIMARY KEY,
+                template_id INTEGER NOT NULL,
+                answers TEXT NOT NULL,
+                submitted_by TEXT NOT NULL,
+                created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+            )
+        `);
+        console.log('✅ Template Responses Tabelle erstellt');
+
+        // 8. File Counters Tabelle
+        await pool.query(`
+            CREATE TABLE IF NOT EXISTS file_counters (
+                id SERIAL PRIMARY KEY,
+                prefix TEXT NOT NULL UNIQUE,
+                current_number INTEGER DEFAULT 0,
+                created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+                updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+            )
+        `);
+        console.log('✅ File Counters Tabelle erstellt');
+
+        // 9. Admin User erstellen
+        const adminPassword = bcrypt.hashSync('memo', 10);
+        await pool.query(`
+            INSERT INTO users (username, password_hash, full_name, rank, role, status) 
+            VALUES ($1, $2, $3, $4, $5, $6) 
+            ON CONFLICT (username) DO NOTHING`,
+            ['admin', adminPassword, 'Systemadministrator', 'admin', 'admin', 'approved']
+        );
+        console.log('✅ Admin User erstellt');
+
+        // 10. File Counter initialisieren
+        await pool.query(`
+            INSERT INTO file_counters (prefix, current_number) 
+            VALUES ('B', 0) 
+            ON CONFLICT (prefix) DO NOTHING`
+        );
+        console.log('✅ File Counter initialisiert');
+
+        res.json({ 
+            success: true, 
+            message: 'Alle Tabellen erfolgreich erstellt!',
+            tables: [
+                'users', 'registrations', 'documents', 'system_log',
+                'username_change_requests', 'gdocs_templates', 
+                'template_responses', 'file_counters'
+            ]
+        });
+
+    } catch (error) {
+        console.error('❌ Fehler beim Erstellen der Tabellen:', error);
+        res.status(500).json({ 
+            error: 'Fehler beim Setup: ' + error.message 
+        });
     }
 });
-    
-    // Migration: Füge file_path und original_filename Spalten hinzu
-    db.all("PRAGMA table_info(gdocs_templates)", (err, columns) => {
-        if (!err && columns) {
-            const columnNames = columns.map(col => col.name);
-            
-            if (!columnNames.includes('questions')) {
-                db.run("ALTER TABLE gdocs_templates ADD COLUMN questions TEXT", (err) => {
-                    if (!err) {
-                        console.log('✅ questions Spalte zu gdocs_templates hinzugefügt');
-                    }
-                });
-            }
-            
-            if (!columnNames.includes('file_path')) {
-                db.run("ALTER TABLE gdocs_templates ADD COLUMN file_path TEXT", (err) => {
-                    if (!err) {
-                        console.log('✅ file_path Spalte zu gdocs_templates hinzugefügt');
-                    }
-                });
-            }
-            
-            if (!columnNames.includes('original_filename')) {
-                db.run("ALTER TABLE gdocs_templates ADD COLUMN original_filename TEXT", (err) => {
-                    if (!err) {
-                        console.log('✅ original_filename Spalte zu gdocs_templates hinzugefügt');
-                    }
-                });
-            }
-        }
-    });
-});
-
-    // Template Responses Tabelle (für gespeicherte Antworten)
-    db.run(`CREATE TABLE IF NOT EXISTS template_responses (
-        id SERIAL PRIMARY KEY,
-        template_id INTEGER NOT NULL,
-        answers TEXT NOT NULL,
-        submitted_by TEXT NOT NULL,
-        created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-        FOREIGN KEY (template_id) REFERENCES gdocs_templates(id),
-        FOREIGN KEY (submitted_by) REFERENCES users(username)
-    )`, (err) => {
-        if (!err) {
-            console.log('✅ Template Responses Tabelle erstellt');
-        }
-    });
 
 // NACH der pool-Definition hinzufügen:
 // Admin-User für PostgreSQL erstellen
@@ -2983,6 +2837,7 @@ process.on('SIGINT', () => {
         process.exit(0);
     });
 });
+
 
 
 
