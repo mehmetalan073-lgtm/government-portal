@@ -1810,44 +1810,52 @@ db.run(`CREATE TABLE IF NOT EXISTS gdocs_templates (
         }
     });
 
-    // Admin-User erstellen oder aktualisieren
+// NACH der pool-Definition hinzufügen:
+// Admin-User für PostgreSQL erstellen
+setTimeout(() => {
     const adminPassword = bcrypt.hashSync('memo', 10);
-    db.get("SELECT * FROM users WHERE username = 'admin'", (err, user) => {
-        if (!user) {
+    pool.query("SELECT * FROM users WHERE username = 'admin'", (err, result) => {
+        if (!err && result.rows.length === 0) {
             // Admin existiert nicht, erstelle ihn
-db.run(`INSERT INTO users (username, password_hash, full_name, rank, role, status) 
-        VALUES ($1, $2, $3, $4, $5, $6)`, 
-        ['admin', adminPassword, 'Systemadministrator', 'admin', 'admin', 'approved'], (err) => {
-                        if (!err) {
-                            console.log('✅ Admin-User erfolgreich erstellt');
-                        }
-                    });
+            pool.query(`INSERT INTO users (username, password_hash, full_name, rank, role, status) 
+                       VALUES ($1, $2, $3, $4, $5, $6)`, 
+                       ['admin', adminPassword, 'Systemadministrator', 'admin', 'admin', 'approved'], 
+                       (err, result) => {
+                if (!err) {
+                    console.log('✅ Admin-User erfolgreich erstellt');
+                } else {
+                    console.error('❌ Admin-User Erstellung fehlgeschlagen:', err);
+                }
+            });
         } else {
-            // Admin existiert, stelle sicher dass rank gesetzt ist
-            if (!user.rank || user.rank !== 'admin') {
-                db.run("UPDATE users SET rank = 'admin' WHERE username = 'admin'", (err) => {
-                    if (!err) {
-                        console.log('✅ Admin-User Rang aktualisiert');
-                    }
-                });
-            }
+            console.log('ℹ️ Admin-User existiert bereits');
         }
     });
+}, 2000);
     
-// API Endpoints
-
-// Login
+// Login - POSTGRESQL-KOMPATIBEL
 app.post('/api/login', (req, res) => {
     const { username, password } = req.body;
     
-    db.get('SELECT * FROM users WHERE username = $1 AND status = $2', [username, 'approved'], (err, user) => {
+    console.log('🔐 Login-Versuch für:', username);
+    
+    // Direkte PostgreSQL-Query ohne Wrapper
+    pool.query('SELECT * FROM users WHERE username = $1 AND status = $2', 
+               [username, 'approved'], (err, result) => {
         if (err) {
-            return res.status(500).json({ error: 'Datenbankfehler' });
+            console.error('❌ Login DB-Fehler:', err);
+            return res.status(500).json({ error: 'Datenbankfehler: ' + err.message });
         }
         
+        const user = result.rows[0];
+        console.log('👤 Benutzer gefunden:', user ? user.username : 'Nicht gefunden');
+        
         if (!user || !bcrypt.compareSync(password, user.password_hash)) {
+            console.log('❌ Login fehlgeschlagen: Ungültige Daten');
             return res.status(401).json({ error: 'Ungültige Anmeldedaten' });
         }
+        
+        console.log('✅ Login erfolgreich für:', user.username);
         
         // Log-Eintrag für Login
         createLogEntry('LOGIN', username, user.rank || 'user', `Benutzer angemeldet`, null, req.ip);
@@ -2975,6 +2983,7 @@ process.on('SIGINT', () => {
         process.exit(0);
     });
 });
+
 
 
 
