@@ -142,7 +142,7 @@ const db = {
 // Log-Eintrag erstellen (Hilfsfunktion)
 function createLogEntry(action, performedBy, userRank, details, targetUser = null, ipAddress = null) {
     db.run(`INSERT INTO system_log (action, performed_by, user_rank, details, target_user, ip_address) 
-            VALUES (?, ?, ?, ?, ?, ?)`,
+            VALUES ($1, $2, $3, $4, $5, $6)`,
             [action, performedBy, userRank, details, targetUser, ipAddress], (err) => {
                 if (err) console.error('Log Fehler:', err);
             });
@@ -209,7 +209,7 @@ async function generateDocxFromTemplate(templatePath, answers, outputFilename, s
         
         // Lade Benutzerdaten aus der Datenbank
 const userData = await new Promise((resolve, reject) => {
-            db.get('SELECT * FROM users WHERE username = ?', [submittedBy], (err, user) => {
+            db.get('SELECT * FROM users WHERE username = $1', [submittedBy], (err, user) => {
                 if (err) reject(err);
                 else resolve(user || {});
             });
@@ -385,7 +385,7 @@ app.put('/api/update-template-questions/:id', (req, res) => {
     const questionsString = JSON.stringify(questions);
     
     // Prüfe ob Template existiert
-    db.get('SELECT name, created_by FROM gdocs_templates WHERE id = ?', [id], (err, template) => {
+    db.get('SELECT name, created_by FROM gdocs_templates WHERE id = $1', [id], (err, template) => {
         if (err) {
             return res.status(500).json({ error: 'Datenbankfehler: ' + err.message });
         }
@@ -395,7 +395,7 @@ app.put('/api/update-template-questions/:id', (req, res) => {
         }
         
         // Aktualisiere nur die Fragen
-        db.run('UPDATE gdocs_templates SET questions = ? WHERE id = ?', [questionsString, id], function(err) {
+        db.run('UPDATE gdocs_templates SET questions = ? WHERE id = $1', [questionsString, id], function(err) {
             if (err) {
                 return res.status(500).json({ error: 'Fehler beim Aktualisieren der Fragen: ' + err.message });
             }
@@ -430,7 +430,7 @@ app.put('/api/update-gdocs-template/:id', upload.single('templateFile'), (req, r
         params.push(req.file.path, req.file.originalname);
     }
     
-    updateQuery += ' WHERE id = ?';
+    updateQuery += ' WHERE id = $1';
     params.push(id);
     
     db.run(updateQuery, params, function(err) {
@@ -464,7 +464,7 @@ app.put('/api/documents/:id', (req, res) => {
     }
     
     // Prüfe ob Dokument existiert und gehört dem Benutzer
-    db.get('SELECT * FROM documents WHERE id = ?', [id], (err, document) => {
+    db.get('SELECT * FROM documents WHERE id = $1', [id], (err, document) => {
         if (err) {
             console.error('❌ Datenbank-Fehler beim Prüfen:', err);
             return res.status(500).json({ error: 'Datenbankfehler: ' + err.message });
@@ -481,7 +481,7 @@ app.put('/api/documents/:id', (req, res) => {
         db.run(`UPDATE documents SET 
                 full_name = ?, birth_date = ?, address = ?, phone = ?, 
                 email = ?, purpose = ?, application_date = ?, additional_info = ?
-                WHERE id = ?`,
+                WHERE id = $1`,
                 [fullName, birthDate, address, phone, email, purpose, applicationDate, additional, id],
                 function(err) {
                     if (err) {
@@ -1249,7 +1249,7 @@ app.get('/api/preview-generated/:documentId', async (req, res) => {
         const htmlContent = await convertDocxToHtml(document.generated_docx_path);
         
         // HTML-Vorschau in DB speichern für zukünftige Aufrufe
-        db.run('UPDATE documents SET preview_html = ? WHERE id = ?', 
+        db.run('UPDATE documents SET preview_html = ? WHERE id = $1', 
                [htmlContent, documentId], (err) => {
             if (err) {
                 console.error('⚠️ Fehler beim Speichern der HTML-Vorschau:', err);
@@ -1615,7 +1615,7 @@ ddb.run(`CREATE TABLE IF NOT EXISTS file_counters (
         const defaultPrefixes = ['B', 'A', 'C', 'D', 'E'];
         
         defaultPrefixes.forEach(prefix => {
-            db.run(`INSERT OR IGNORE INTO file_counters (prefix, current_number) VALUES (?, 0)`, 
+            db.run(`INSERT OR IGNORE INTO file_counters (prefix, current_number) VALUES ($1, 0)`, 
                    [prefix], (err) => {
                 if (!err) {
                     console.log(`✅ Counter für Prefix "${prefix}" initialisiert`);
@@ -1876,7 +1876,7 @@ app.post('/api/register', (req, res) => {
     const passwordHash = bcrypt.hashSync(password, 10);
     
     db.run(`INSERT INTO registrations (username, password_hash, full_name, reason) 
-        VALUES (?, ?, ?, ?)`, 
+        VALUES ($1, $2, $3, $4)`, 
         [username, passwordHash, fullName, reason],
             function(err) {
                 if (err) {
@@ -1905,20 +1905,20 @@ app.post('/api/approve-registration/:id', (req, res) => {
     const { id } = req.params;
     const { adminUsername } = req.body;
     
-    db.get('SELECT * FROM registrations WHERE id = ?', [id], (err, registration) => {
+    db.get('SELECT * FROM registrations WHERE id = $1', [id], (err, registration) => {
         if (err || !registration) {
             return res.status(404).json({ error: 'Registrierung nicht gefunden' });
         }
         
         // Benutzer mit Standard-Rang 'besucher' erstellen
         db.run(`INSERT INTO users (username, password_hash, full_name, rank, role, status, approved_by, approved_at) 
-        VALUES (?, ?, ?, 'besucher', 'user', 'approved', ?, CURRENT_TIMESTAMP)`,
+        VALUES ($1, $2, $3, 'besucher', 'user', 'approved', ?, CURRENT_TIMESTAMP)`,
         [registration.username, registration.password_hash, registration.full_name, adminUsername], (err) => {
                     if (err) {
                         return res.status(500).json({ error: 'Fehler beim Erstellen des Benutzers' });
                     }
                     
-                    db.run(`UPDATE registrations SET status = 'approved', approved_by = ?, approved_at = CURRENT_TIMESTAMP WHERE id = ?`,
+                    db.run(`UPDATE registrations SET status = 'approved', approved_by = ?, approved_at = CURRENT_TIMESTAMP WHERE id = $1`,
                             [adminUsername, id], (err) => {
                                 if (err) {
                                     return res.status(500).json({ error: 'Fehler beim Update der Registrierung' });
@@ -1938,12 +1938,12 @@ app.post('/api/reject-registration/:id', (req, res) => {
     const { id } = req.params;
     const { adminUsername } = req.body;
     
-    db.get('SELECT * FROM registrations WHERE id = ?', [id], (err, registration) => {
+    db.get('SELECT * FROM registrations WHERE id = $1', [id], (err, registration) => {
         if (err || !registration) {
             return res.status(404).json({ error: 'Registrierung nicht gefunden' });
         }
         
-        db.run(`UPDATE registrations SET status = 'rejected', approved_by = ?, approved_at = CURRENT_TIMESTAMP WHERE id = ?`,
+        db.run(`UPDATE registrations SET status = 'rejected', approved_by = ?, approved_at = CURRENT_TIMESTAMP WHERE id = $1`,
                 [adminUsername, id], (err) => {
                     if (err) {
                         return res.status(500).json({ error: 'Datenbankfehler' });
@@ -1981,7 +1981,7 @@ app.post('/api/update-rank/:id', (req, res) => {
     }
     
     // Admin kann nicht degradiert werden
-    db.get('SELECT username FROM users WHERE id = ?', [id], (err, user) => {
+    db.get('SELECT username FROM users WHERE id = $1', [id], (err, user) => {
         if (err || !user) {
             return res.status(404).json({ error: 'Benutzer nicht gefunden' });
         }
@@ -1990,7 +1990,7 @@ app.post('/api/update-rank/:id', (req, res) => {
             return res.status(403).json({ error: 'Admin-Rang kann nicht geändert werden' });
         }
         
-        db.run('UPDATE users SET rank = ? WHERE id = ?', [rank, id], (err) => {
+        db.run('UPDATE users SET rank = ? WHERE id = $1', [rank, id], (err) => {
             if (err) {
                 return res.status(500).json({ error: 'Datenbankfehler' });
             }
@@ -2007,7 +2007,7 @@ app.post('/api/update-rank/:id', (req, res) => {
 app.delete('/api/users/:id', (req, res) => {
     const { id } = req.params;
     
-    db.get('SELECT username FROM users WHERE id = ?', [id], (err, user) => {
+    db.get('SELECT username FROM users WHERE id = $1', [id], (err, user) => {
         if (err || !user) {
             return res.status(404).json({ error: 'Benutzer nicht gefunden' });
         }
@@ -2016,7 +2016,7 @@ app.delete('/api/users/:id', (req, res) => {
             return res.status(403).json({ error: 'Admin kann nicht gelöscht werden' });
         }
         
-        db.run('DELETE FROM users WHERE id = ?', [id], (err) => {
+        db.run('DELETE FROM users WHERE id = $1', [id], (err) => {
             if (err) {
                 return res.status(500).json({ error: 'Datenbankfehler' });
             }
@@ -2033,7 +2033,7 @@ app.delete('/api/users/:id', (req, res) => {
 app.post('/api/update-dark-mode', (req, res) => {
     const { username, darkMode } = req.body;
     
-    db.run('UPDATE users SET dark_mode = ? WHERE username = ?', 
+    db.run('UPDATE users SET dark_mode = ? WHERE username = $1', 
            [darkMode ? 1 : 0, username], (err) => {
         if (err) {
             return res.status(500).json({ error: 'Datenbankfehler' });
@@ -2046,7 +2046,7 @@ app.post('/api/update-dark-mode', (req, res) => {
 app.get('/api/dark-mode/:username', (req, res) => {
     const { username } = req.params;
     
-    db.get('SELECT dark_mode FROM users WHERE username = ?', [username], (err, row) => {
+    db.get('SELECT dark_mode FROM users WHERE username = $1', [username], (err, row) => {
         if (err) {
             return res.status(500).json({ error: 'Datenbankfehler' });
         }
@@ -2067,7 +2067,7 @@ app.post('/api/request-username-change', (req, res) => {
     }
     
     // Prüfen ob neuer Username bereits existiert
-    db.get('SELECT username FROM users WHERE username = ?', [newUsername], (err, existingUser) => {
+    db.get('SELECT username FROM users WHERE username = $1', [newUsername], (err, existingUser) => {
         if (err) {
             return res.status(500).json({ error: 'Datenbankfehler' });
         }
@@ -2077,7 +2077,7 @@ app.post('/api/request-username-change', (req, res) => {
         }
         
         db.run(`INSERT INTO username_change_requests (current_username, new_username, reason) 
-                VALUES (?, ?, ?)`, 
+                VALUES ($1, $2, $3)`, 
                 [currentUsername, newUsername, reason], 
                 function(err) {
                     if (err) {
@@ -2104,13 +2104,13 @@ app.post('/api/approve-username-change/:id', (req, res) => {
     const { id } = req.params;
     const { adminUsername } = req.body;
     
-    db.get('SELECT * FROM username_change_requests WHERE id = ?', [id], (err, request) => {
+    db.get('SELECT * FROM username_change_requests WHERE id = $1', [id], (err, request) => {
         if (err || !request) {
             return res.status(404).json({ error: 'Antrag nicht gefunden' });
         }
         
         // Prüfen ob neuer Username immer noch verfügbar ist
-        db.get('SELECT username FROM users WHERE username = ?', [request.new_username], (err, existingUser) => {
+        db.get('SELECT username FROM users WHERE username = $1', [request.new_username], (err, existingUser) => {
             if (err) {
                 return res.status(500).json({ error: 'Datenbankfehler' });
             }
@@ -2120,14 +2120,14 @@ app.post('/api/approve-username-change/:id', (req, res) => {
             }
             
             // Username in users Tabelle ändern
-            db.run('UPDATE users SET username = ? WHERE username = ?', 
+            db.run('UPDATE users SET username = ? WHERE username = $1', 
                    [request.new_username, request.current_username], (err) => {
                 if (err) {
                     return res.status(500).json({ error: 'Fehler beim Username-Update' });
                 }
                 
                 // Request als genehmigt markieren
-                db.run(`UPDATE username_change_requests SET status = 'approved', approved_by = ?, approved_at = CURRENT_TIMESTAMP WHERE id = ?`,
+                db.run(`UPDATE username_change_requests SET status = 'approved', approved_by = ?, approved_at = CURRENT_TIMESTAMP WHERE id = $1`,
                        [adminUsername, id], (err) => {
                     if (err) {
                         return res.status(500).json({ error: 'Datenbankfehler' });
@@ -2148,12 +2148,12 @@ app.post('/api/reject-username-change/:id', (req, res) => {
     const { id } = req.params;
     const { adminUsername } = req.body;
     
-    db.get('SELECT * FROM username_change_requests WHERE id = ?', [id], (err, request) => {
+    db.get('SELECT * FROM username_change_requests WHERE id = $1', [id], (err, request) => {
         if (err || !request) {
             return res.status(404).json({ error: 'Antrag nicht gefunden' });
         }
         
-        db.run(`UPDATE username_change_requests SET status = 'rejected', approved_by = ?, approved_at = CURRENT_TIMESTAMP WHERE id = ?`,
+        db.run(`UPDATE username_change_requests SET status = 'rejected', approved_by = ?, approved_at = CURRENT_TIMESTAMP WHERE id = $1`,
                [adminUsername, id], (err) => {
             if (err) {
                 return res.status(500).json({ error: 'Datenbankfehler' });
@@ -2290,7 +2290,7 @@ app.delete('/api/documents/:id', (req, res) => {
     }
     
     // Prüfe ob Dokument existiert
-    db.get('SELECT * FROM documents WHERE id = ?', [id], (err, document) => {
+    db.get('SELECT * FROM documents WHERE id = $1', [id], (err, document) => {
         if (err) {
             console.error('❌ Datenbank-Fehler beim Prüfen des Dokuments:', err);
             return res.status(500).json({ error: 'Datenbankfehler: ' + err.message });
@@ -2304,7 +2304,7 @@ app.delete('/api/documents/:id', (req, res) => {
         console.log('📄 Zu löschendes Dokument gefunden:', document);
         
         // Lösche das Dokument
-        db.run('DELETE FROM documents WHERE id = ?', [id], function(err) {
+        db.run('DELETE FROM documents WHERE id = $1', [id], function(err) {
             if (err) {
                 console.error('❌ Fehler beim Löschen des Dokuments:', err);
                 return res.status(500).json({ error: 'Fehler beim Löschen: ' + err.message });
@@ -2360,7 +2360,7 @@ app.post('/api/create-gdocs-template', upload.single('templateFile'), (req, res)
     }
     
     db.run(`INSERT INTO gdocs_templates (name, description, file_path, original_filename, available_ranks, questions, created_by) 
-            VALUES (?, ?, ?, ?, ?, ?, ?)`,
+            VALUES ($1, $2, $3, $4, $5, $6, &7)`,
             [name, description, req.file.path, req.file.originalname, ranksString, questionsString, createdBy],
             function(err) {
                 if (err) {
@@ -2382,7 +2382,7 @@ app.post('/api/create-gdocs-template', upload.single('templateFile'), (req, res)
 app.get('/api/download-template/:id', (req, res) => {
     const { id } = req.params;
     
-    db.get('SELECT * FROM gdocs_templates WHERE id = ?', [id], (err, template) => {
+    db.get('SELECT * FROM gdocs_templates WHERE id = $1', [id], (err, template) => {
         if (err || !template) {
             return res.status(404).json({ error: 'Vorlage nicht gefunden' });
         }
@@ -2415,7 +2415,7 @@ app.get('/api/gdocs-templates', (req, res) => {
 app.get('/api/gdocs-template/:id', (req, res) => {
     const { id } = req.params;
     
-    db.get('SELECT * FROM gdocs_templates WHERE id = ?', [id], (err, template) => {
+    db.get('SELECT * FROM gdocs_templates WHERE id = $1', [id], (err, template) => {
         if (err) {
             return res.status(500).json({ error: 'Datenbankfehler' });
         }
@@ -2498,7 +2498,7 @@ app.post('/api/submit-template-response', async (req, res) => {
     try {
         // 1. Hole Template-Informationen
         const template = await new Promise((resolve, reject) => {
-            db.get('SELECT * FROM gdocs_templates WHERE id = ?', [templateId], (err, row) => {
+            db.get('SELECT * FROM gdocs_templates WHERE id = $1', [templateId], (err, row) => {
                 if (err) reject(err);
                 else resolve(row);
             });
@@ -2513,7 +2513,7 @@ app.post('/api/submit-template-response', async (req, res) => {
         // 2. Template-Antwort in DB speichern
         const responseId = await new Promise((resolve, reject) => {
             db.run(`INSERT INTO template_responses (template_id, answers, submitted_by) 
-                    VALUES (?, ?, ?)`,
+                    VALUES ($1, $2, $3)`,
                     [templateId, answersString, submittedBy],
                     function(err) {
                         if (err) reject(err);
@@ -2591,7 +2591,7 @@ for (const [fieldId, value] of Object.entries(answers)) {
             db.run(`INSERT INTO documents (full_name, birth_date, address, phone, 
         purpose, application_date, additional_info, created_by, template_response_id, 
         document_type, generated_docx_path, generated_filename, file_number) 
-        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+        VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13)`,
         [fullName, birthDate, address, phone, purpose, 
          applicationDate, additionalInfo.trim(), submittedBy, responseId, 'template',
          generatedDocxPath, generatedFilename, generatedFileNumber],
@@ -2652,7 +2652,7 @@ app.get('/api/template-responses/:templateId', (req, res) => {
 app.delete('/api/gdocs-templates/:id', (req, res) => {
     const { id } = req.params;
     
-    db.get('SELECT name FROM gdocs_templates WHERE id = ?', [id], (err, template) => {
+    db.get('SELECT name FROM gdocs_templates WHERE id = $1', [id], (err, template) => {
         if (err || !template) {
             return res.status(404).json({ error: 'Vorlage nicht gefunden' });
         }
@@ -2664,7 +2664,7 @@ app.delete('/api/gdocs-templates/:id', (req, res) => {
             }
             
             // Dann Template löschen
-            db.run('DELETE FROM gdocs_templates WHERE id = ?', [id], (err) => {
+            db.run('DELETE FROM gdocs_templates WHERE id = $1', [id], (err) => {
                 if (err) {
                     return res.status(500).json({ error: 'Datenbankfehler' });
                 }
@@ -2683,7 +2683,7 @@ app.get('/api/test-db', (req, res) => {
     console.log('🧪 Datenbank-Test aufgerufen');
     
     // Teste Verbindung
-    db.get("SELECT datetime('now') as current_time", (err, row) => {
+    db.get("SELECT NOW() as current_time", (err, row) => {
         if (err) {
             console.error('❌ Datenbank-Verbindung fehlgeschlagen:', err);
             return res.status(500).json({ error: 'Datenbank-Verbindung fehlgeschlagen: ' + err.message });
@@ -2943,7 +2943,7 @@ app.listen(PORT, '0.0.0.0', () => {
     console.log(`✅ Version 23-RAILWAY - Railway Volume Support aktiviert`);
     
     // Teste Datenbankverbindung
-    db.get("SELECT datetime('now') as current_time", (err, row) => {
+    db.get("SELECT NOW() as current_time", (err, row) => {
         if (err) {
             console.error('❌ Datenbank-Test fehlgeschlagen:', err);
         } else {
@@ -2974,6 +2974,7 @@ process.on('SIGINT', () => {
     });
 
 });
+
 
 
 
