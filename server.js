@@ -95,11 +95,6 @@ const db = {
             lastID: result.rows && result.rows[0] && result.rows[0].id ? result.rows[0].id : null,
             changes: result.rowCount || 0
           };
-          callback.call(context, null);
-        }
-      }
-    });
-  },
 
   get: (query, params, callback) => {
     if (typeof params === 'function') {
@@ -2365,7 +2360,7 @@ app.post('/api/create-gdocs-template', upload.single('templateFile'), (req, res)
     }
     
     db.run(`INSERT INTO gdocs_templates (name, description, file_path, original_filename, available_ranks, questions, created_by) 
-            VALUES ($1, $2, $3, $4, $5, $6, &7)`,
+            VALUES ($1, $2, $3, $4, $5, $6, $7)`,
             [name, description, req.file.path, req.file.originalname, ranksString, questionsString, createdBy],
             function(err) {
                 if (err) {
@@ -2975,6 +2970,7 @@ process.on('SIGINT', () => {
         process.exit(0);
     });
 });
+
 
 
 
