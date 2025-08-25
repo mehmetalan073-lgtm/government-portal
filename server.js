@@ -95,6 +95,11 @@ const db = {
             lastID: result.rows && result.rows[0] && result.rows[0].id ? result.rows[0].id : null,
             changes: result.rowCount || 0
           };
+          callback.call(context, null);  // <- DAS FEHLT!
+        }                               // <- DAS FEHLT!
+      }                                 // <- DAS FEHLT!
+    });                                 // <- DAS FEHLT!
+  },                                    // <- DAS FEHLT!
 
   get: (query, params, callback) => {
     if (typeof params === 'function') {
@@ -2970,6 +2975,7 @@ process.on('SIGINT', () => {
         process.exit(0);
     });
 });
+
 
 
 
