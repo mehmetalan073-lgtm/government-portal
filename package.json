@@ -16,10 +16,11 @@
         "multer": "^2.0.2",
         "pizzip": "^3.2.0",
         "pg": "^8.11.0",
-    },
+    }
     "devDependencies": {
         "nodemon": "^3.0.2"
     }
 }
+
 
 
