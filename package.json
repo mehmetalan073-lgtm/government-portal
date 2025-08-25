@@ -15,10 +15,11 @@
         "mammoth": "^1.10.0",
         "multer": "^2.0.2",
         "pizzip": "^3.2.0",
-        "sqlite3": "^5.1.6"
+        "pg": "^8.11.0",
     },
     "devDependencies": {
         "nodemon": "^3.0.2"
     }
 }
+
 
