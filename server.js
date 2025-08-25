@@ -144,6 +144,46 @@ const db = {
   }
 };
 
+async function initializeDatabase() {
+    console.log('🗃️ Initialisiere PostgreSQL Datenbank...');
+    
+    try {
+        // 1. Users Tabelle
+        await pool.query(`
+            CREATE TABLE IF NOT EXISTS users (
+                id SERIAL PRIMARY KEY,
+                username TEXT UNIQUE NOT NULL,
+                password_hash TEXT NOT NULL,
+                full_name TEXT NOT NULL,
+                rank TEXT DEFAULT 'user',
+                role TEXT DEFAULT 'user',
+                status TEXT DEFAULT 'approved',
+                dark_mode INTEGER DEFAULT 0,
+                created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+                approved_by TEXT,
+                approved_at TIMESTAMP
+            )
+        `);
+        
+        // ... [alle anderen Tabellen aus dem Artifact]
+        
+        // Admin User erstellen
+        const adminPassword = bcrypt.hashSync('memo', 10);
+        await pool.query(`
+            INSERT INTO users (username, password_hash, full_name, rank, role, status) 
+            VALUES ($1, $2, $3, $4, $5, $6) 
+            ON CONFLICT (username) DO NOTHING`,
+            ['admin', adminPassword, 'Systemadministrator', 'admin', 'admin', 'approved']
+        );
+        
+        console.log('🎉 Datenbank-Initialisierung erfolgreich!');
+        return true;
+    } catch (error) {
+        console.error('❌ Fehler bei Datenbank-Initialisierung:', error);
+        return false;
+    }
+}
+
 // Log-Eintrag erstellen (Hilfsfunktion)
 function createLogEntry(action, performedBy, userRank, details, targetUser = null, ipAddress = null) {
     db.run(`INSERT INTO system_log (action, performed_by, user_rank, details, target_user, ip_address) 
@@ -2800,20 +2840,13 @@ app.get('/api/debug/storage', (req, res) => {
 });
 
 // Server starten
-app.listen(PORT, '0.0.0.0', () => {
-    console.log(`🏛️ Regierungspanel v23-RAILWAY läuft auf http://localhost:${PORT}`);
-    console.log(`🗃️ PostgreSQL-Verbindung aktiv`);
-    console.log(`📁 Upload-Basis-Pfad: ${uploadsBasePath}`);
-    console.log(`🌍 Environment: ${process.env.NODE_ENV}`);
-    console.log(`💾 DATABASE_URL: ${process.env.DATABASE_URL ? 'Configured' : 'Missing'}`);
-    console.log(`📈 Rang-System aktiviert mit 8 verschiedenen Rängen`);
-    console.log(`✅ Username-Änderungen aktiviert`);
-    console.log(`📜 System-Log aktiviert`);
-    console.log(`📝 G-Docs Funktion aktiviert`);
-    console.log(`📋 Erweiterte Fragebogen-Funktionalität aktiviert`);
-    console.log(`🔍 Debug-Modus für Dokumente-System aktiviert`);
-    console.log(`🧪 Test-Endpoint verfügbar: GET /api/test-db`);
-    console.log(`✅ Version 24-POSTGRESQL - PostgreSQL Support aktiviert`);
+// Datenbank initialisieren und dann Server starten
+initializeDatabase().then((success) => {
+    app.listen(PORT, '0.0.0.0', () => {
+        console.log(`🏛️ Regierungspanel läuft auf Port ${PORT}`);
+        console.log('✅ Datenbank initialisiert!');
+    });
+});
     
     // Teste Datenbankverbindung
  db.get("SELECT NOW() as current_time", (err, row) => {
@@ -2837,6 +2870,7 @@ process.on('SIGINT', () => {
         process.exit(0);
     });
 });
+
 
 
 
