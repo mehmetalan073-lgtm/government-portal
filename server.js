@@ -69,6 +69,7 @@ app.get('/', (req, res) => {
 });
 
 // PostgreSQL Connection Pool
+// PostgreSQL Connection Pool
 const pool = new Pool({
   connectionString: process.env.DATABASE_URL,
   ssl: process.env.NODE_ENV === 'production' ? { rejectUnauthorized: false } : false
@@ -76,19 +77,7 @@ const pool = new Pool({
 
 console.log('🗃️ PostgreSQL-Verbindung initialisiert');
 
-// SQLite-kompatible Wrapper
-const db = {
-  run: (query, params, callback) => {
-    if (typeof params === 'function') {
-      callback = params;
-      params = [];
-    }
-    pool.query(query, params, (err, result) => {
-      if (callback) {
-        if (err) {
-          callback(err);
-        } else {
-          // SQLite-kompatible Wrapper (KORRIGIERT)
+// SQLite-kompatible Wrapper (KORRIGIERT)
 const db = {
   run: (query, params, callback) => {
     if (typeof params === 'function') {
@@ -101,14 +90,8 @@ const db = {
         if (err) {
           callback(err);
         } else {
-          // KORRIGIERT: Für INSERT Queries mit RETURNING
-          let lastID = null;
-          if (result.rows && result.rows.length > 0 && result.rows[0].id) {
-            lastID = result.rows[0].id;
-          }
-          
           const context = {
-            lastID: lastID,
+            lastID: result.rows && result.rows[0] && result.rows[0].id ? result.rows[0].id : null,
             changes: result.rowCount || 0
           };
           callback.call(context, null);
@@ -3005,7 +2988,7 @@ app.listen(PORT, '0.0.0.0', () => {
     console.log(`🗃️ PostgreSQL-Verbindung aktiv`);
     console.log(`📁 Upload-Basis-Pfad: ${uploadsBasePath}`);
     console.log(`🌍 Environment: ${process.env.NODE_ENV}`);
-    console.log(`💾 Railway Volume Mount: ${process.env.RAILWAY_VOLUME_MOUNT_PATH || 'Nicht gesetzt'}`);
+    console.log(`💾 DATABASE_URL: ${process.env.DATABASE_URL ? 'Configured' : 'Missing'}`);
     console.log(`📈 Rang-System aktiviert mit 8 verschiedenen Rängen`);
     console.log(`✅ Username-Änderungen aktiviert`);
     console.log(`📜 System-Log aktiviert`);
@@ -3013,40 +2996,31 @@ app.listen(PORT, '0.0.0.0', () => {
     console.log(`📋 Erweiterte Fragebogen-Funktionalität aktiviert`);
     console.log(`🔍 Debug-Modus für Dokumente-System aktiviert`);
     console.log(`🧪 Test-Endpoint verfügbar: GET /api/test-db`);
-    console.log(`✅ Version 23-RAILWAY - Railway Volume Support aktiviert`);
+    console.log(`✅ Version 24-POSTGRESQL - PostgreSQL Support aktiviert`);
     
     // Teste Datenbankverbindung
-    db.get("SELECT NOW() as current_time", (err, row) => {
-        if (err) {
-            console.error('❌ Datenbank-Test fehlgeschlagen:', err);
-        } else {
-            console.log('✅ Datenbank funktioniert, Zeit:', row.current_time);
-        }
-    });
-    
-    // Teste Volume-Schreibberechtigung
-    const testFile = path.join(dataDir, 'test-write.txt');
-    fs.writeFile(testFile, 'Railway Volume Test', (err) => {
-        if (err) {
-            console.error('❌ Volume-Schreibtest fehlgeschlagen:', err);
-        } else {
-            console.log('✅ Volume-Schreibberechtigung OK');
-            fs.unlinkSync(testFile); // Test-Datei wieder löschen
-        }
-    });
+ db.get("SELECT NOW() as current_time", (err, row) => {
+    if (err) {
+        console.error('❌ PostgreSQL-Test fehlgeschlagen:', err);
+    } else {
+        console.log('✅ PostgreSQL funktioniert, Zeit:', row.current_time);
+    }
+});
 });
 
-// Graceful shutdown
+// Graceful shutdown für PostgreSQL
 process.on('SIGINT', () => {
+    console.log('🛑 Server wird heruntergefahren...');
     db.close((err) => {
         if (err) {
-            console.error(err.message);
+            console.error('❌ PostgreSQL-Verbindung schließen fehlgeschlagen:', err);
+        } else {
+            console.log('✅ PostgreSQL-Verbindung geschlossen.');
         }
-        console.log('Datenbankverbindung geschlossen.');
         process.exit(0);
     });
-
 });
+
 
 
 
