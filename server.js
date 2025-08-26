@@ -165,7 +165,123 @@ async function initializeDatabase() {
             )
         `);
         
-        // ... [alle anderen Tabellen aus dem Artifact]
+        // 2. Registrations Tabelle
+        await pool.query(`
+            CREATE TABLE IF NOT EXISTS registrations (
+                id SERIAL PRIMARY KEY,
+                username TEXT UNIQUE NOT NULL,
+                password_hash TEXT NOT NULL,
+                full_name TEXT NOT NULL,
+                reason TEXT NOT NULL,
+                status TEXT DEFAULT 'pending',
+                created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+                approved_by TEXT,
+                approved_at TIMESTAMP
+            )
+        `);
+        console.log('✅ Registrations Tabelle erstellt/überprüft');
+
+        // 3. Documents Tabelle
+        await pool.query(`
+            CREATE TABLE IF NOT EXISTS documents (
+                id SERIAL PRIMARY KEY,
+                full_name TEXT NOT NULL,
+                birth_date TEXT,
+                address TEXT,
+                phone TEXT,
+                purpose TEXT NOT NULL,
+                application_date TEXT,
+                additional_info TEXT,
+                created_by TEXT NOT NULL,
+                template_response_id INTEGER,
+                document_type TEXT DEFAULT 'manual',
+                generated_docx_path TEXT,
+                generated_filename TEXT,
+                file_number TEXT,
+                preview_html TEXT,
+                created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+            )
+        `);
+        console.log('✅ Documents Tabelle erstellt/überprüft');
+
+        // 4. System Log Tabelle
+        await pool.query(`
+            CREATE TABLE IF NOT EXISTS system_log (
+                id SERIAL PRIMARY KEY,
+                action TEXT NOT NULL,
+                performed_by TEXT NOT NULL,
+                user_rank TEXT,
+                details TEXT,
+                target_user TEXT,
+                ip_address TEXT,
+                session_id TEXT,
+                created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+            )
+        `);
+        console.log('✅ System Log Tabelle erstellt/überprüft');
+
+        // 5. Username Change Requests Tabelle
+        await pool.query(`
+            CREATE TABLE IF NOT EXISTS username_change_requests (
+                id SERIAL PRIMARY KEY,
+                current_username TEXT NOT NULL,
+                new_username TEXT NOT NULL,
+                reason TEXT NOT NULL,
+                status TEXT DEFAULT 'pending',
+                created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+                approved_by TEXT,
+                approved_at TIMESTAMP
+            )
+        `);
+        console.log('✅ Username Change Requests Tabelle erstellt/überprüft');
+
+        // 6. G-Docs Templates Tabelle
+        await pool.query(`
+            CREATE TABLE IF NOT EXISTS gdocs_templates (
+                id SERIAL PRIMARY KEY,
+                name TEXT NOT NULL,
+                description TEXT,
+                file_path TEXT NOT NULL,
+                original_filename TEXT,
+                available_ranks TEXT NOT NULL,
+                questions TEXT,
+                created_by TEXT NOT NULL,
+                created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+            )
+        `);
+        console.log('✅ G-Docs Templates Tabelle erstellt/überprüft');
+
+        // 7. Template Responses Tabelle
+        await pool.query(`
+            CREATE TABLE IF NOT EXISTS template_responses (
+                id SERIAL PRIMARY KEY,
+                template_id INTEGER NOT NULL,
+                answers TEXT NOT NULL,
+                submitted_by TEXT NOT NULL,
+                created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+            )
+        `);
+        console.log('✅ Template Responses Tabelle erstellt/überprüft');
+
+        // 8. File Counters Tabelle
+        await pool.query(`
+            CREATE TABLE IF NOT EXISTS file_counters (
+                id SERIAL PRIMARY KEY,
+                prefix TEXT NOT NULL UNIQUE,
+                current_number INTEGER DEFAULT 0,
+                created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+                updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+            )
+        `);
+        console.log('✅ File Counters Tabelle erstellt/überprüft');
+
+        // 10. File Counter initialisieren
+        await pool.query(`
+            INSERT INTO file_counters (prefix, current_number) 
+            VALUES ('B', 0) 
+            ON CONFLICT (prefix) DO NOTHING`
+        );
+        console.log('✅ File Counter initialisiert/überprüft');
         
         // Admin User erstellen
         const adminPassword = bcrypt.hashSync('memo', 10);
@@ -2870,6 +2986,7 @@ process.on('SIGINT', () => {
         process.exit(0);
     });
 });
+
 
 
 
