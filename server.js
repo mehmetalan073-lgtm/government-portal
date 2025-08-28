@@ -72,8 +72,20 @@ app.get('/', (req, res) => {
 // PostgreSQL Connection Pool
 const pool = new Pool({
   connectionString: process.env.DATABASE_URL,
-  ssl: process.env.NODE_ENV === 'production' ? { rejectUnauthorized: false } : false
+  ssl: process.env.NODE_ENV === 'production' ? { 
+    rejectUnauthorized: false 
+  } : false,
+  max: 20,
+  idleTimeoutMillis: 30000,
+  connectionTimeoutMillis: 10000,
 });
+
+// DEBUG: Umgebungsvariablen prüfen
+console.log('🔍 DEBUG: DATABASE_URL exists:', !!process.env.DATABASE_URL);
+if (!process.env.DATABASE_URL) {
+    console.error('❌ DATABASE_URL ist nicht gesetzt!');
+    process.exit(1);
+}
 
 console.log('🗃️ PostgreSQL-Verbindung initialisiert');
 
@@ -2987,6 +2999,7 @@ process.on('SIGINT', () => {
         process.exit(0);
     });
 });
+
 
 
 
