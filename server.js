@@ -2957,21 +2957,22 @@ app.get('/api/debug/storage', (req, res) => {
 
 // Server starten
 // Datenbank initialisieren und dann Server starten
+// Server starten
+// Datenbank initialisieren und dann Server starten
 initializeDatabase().then((success) => {
     app.listen(PORT, '0.0.0.0', () => {
         console.log(`🏛️ Regierungspanel läuft auf Port ${PORT}`);
         console.log('✅ Datenbank initialisiert!');
+        
+        // Teste Datenbankverbindung
+        db.get("SELECT NOW() as current_time", (err, row) => {
+            if (err) {
+                console.error('❌ PostgreSQL-Test fehlgeschlagen:', err);
+            } else {
+                console.log('✅ PostgreSQL funktioniert, Zeit:', row.current_time);
+            }
+        });
     });
-});
-    
-    // Teste Datenbankverbindung
- db.get("SELECT NOW() as current_time", (err, row) => {
-    if (err) {
-        console.error('❌ PostgreSQL-Test fehlgeschlagen:', err);
-    } else {
-        console.log('✅ PostgreSQL funktioniert, Zeit:', row.current_time);
-    }
-});
 });
 
 // Graceful shutdown für PostgreSQL
@@ -2986,6 +2987,7 @@ process.on('SIGINT', () => {
         process.exit(0);
     });
 });
+
 
 
 
