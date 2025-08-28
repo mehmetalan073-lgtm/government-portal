@@ -1567,7 +1567,7 @@ app.get('/api/stats', (req, res) => {
             stats.totalUsers = users.length;
             
             // Aktive Benutzer zählen
-            db.all('SELECT id FROM users WHERE status = "approved"', [], (err, activeUsers) => {
+            db.all('SELECT id FROM users WHERE status = $1', ['approved'], (err, activeUsers) => {
                 if (!err && activeUsers) {
                     stats.activeUsers = activeUsers.length;
                 }
@@ -1927,7 +1927,7 @@ app.post('/api/register', (req, res) => {
 
 // Wartende Registrierungen abrufen
 app.get('/api/pending-registrations', (req, res) => {
-    db.all('SELECT * FROM registrations WHERE status = "pending" ORDER BY created_at DESC', (err, rows) => {
+    db.all('SELECT * FROM registrations WHERE status = $1 ORDER BY created_at DESC', ['pending'], (err, rows) => {
         if (err) {
             return res.status(500).json({ error: 'Datenbankfehler' });
         }
@@ -2271,7 +2271,7 @@ app.get('/api/documents/:username', (req, res) => {
         FROM documents d
         LEFT JOIN template_responses tr ON d.template_response_id = tr.id
         LEFT JOIN gdocs_templates gt ON tr.template_id = gt.id
-        WHERE d.created_by = ?
+        WHERE d.created_by = $1
     `;
     let queryParams = [username];
     
@@ -2467,10 +2467,10 @@ app.get('/api/gdocs-template/:id', (req, res) => {
 app.get('/api/available-templates/:rank', (req, res) => {
     const { rank } = req.params;
     
-    db.all(`SELECT * FROM gdocs_templates 
-            WHERE available_ranks LIKE ? OR available_ranks LIKE ? 
-            ORDER BY created_at DESC`, 
-            [`%${rank}%`, '%admin%'], (err, rows) => {
+db.all(`SELECT * FROM gdocs_templates 
+        WHERE available_ranks LIKE $1 OR available_ranks LIKE $2 
+        ORDER BY created_at DESC`, 
+        [`%${rank}%`, '%admin%'], (err, rows) => {
         if (err) {
             return res.status(500).json({ error: 'Datenbankfehler' });
         }
@@ -2764,7 +2764,7 @@ app.get('/api/stats', (req, res) => {
             stats.totalUsers = users.length;
             
             // Aktive Benutzer zählen
-            db.all('SELECT id FROM users WHERE status = "approved"', [], (err, activeUsers) => {
+            db.all('SELECT id FROM users WHERE status = $1', ['approved'], (err, activeUsers) => {
                 if (!err && activeUsers) {
                     stats.activeUsers = activeUsers.length;
                 }
@@ -2999,6 +2999,7 @@ process.on('SIGINT', () => {
         process.exit(0);
     });
 });
+
 
 
 
