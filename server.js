@@ -326,7 +326,7 @@ async function getNextFileNumber() {
         console.log('📊 Generiere nächste B-Nummer (Bewertung)...');
         
         // Hole aktuellen B-Counter und erhöhe um 1
-        db.get('SELECT current_number FROM file_counters WHERE prefix = ?', ['B'], (err, row) => {
+        db.get('SELECT current_number FROM file_counters WHERE prefix = $1', ['B'], (err, row) => {
             if (err) {
                 console.error('❌ Fehler beim Laden des B-Counters:', err);
                 return reject(err);
@@ -336,8 +336,8 @@ async function getNextFileNumber() {
              const nextNumber = currentNumber + 1;
             
             // Update Counter in Datenbank
-            db.run('UPDATE file_counters SET current_number = ?, updated_at = CURRENT_TIMESTAMP WHERE prefix = ?', 
-                   [nextNumber, 'B'], (err) => {
+            db.run('UPDATE file_counters SET current_number = $1, updated_at = CURRENT_TIMESTAMP WHERE prefix = $2', 
+       [nextNumber, 'B'], (err) => {
                 if (err) {
                     console.error('❌ Fehler beim Update des B-Counters:', err);
                     return reject(err);
@@ -568,7 +568,7 @@ app.put('/api/update-template-questions/:id', (req, res) => {
         }
         
         // Aktualisiere nur die Fragen
-        db.run('UPDATE gdocs_templates SET questions = ? WHERE id = $1', [questionsString, id], function(err) {
+        db.run('UPDATE gdocs_templates SET questions = $1 WHERE id = $2', [questionsString, id], function(err) {
             if (err) {
                 return res.status(500).json({ error: 'Fehler beim Aktualisieren der Fragen: ' + err.message });
             }
@@ -594,16 +594,16 @@ app.put('/api/update-gdocs-template/:id', upload.single('templateFile'), (req, r
         return res.status(400).json({ error: 'Name ist erforderlich' });
     }
     
-    let updateQuery = 'UPDATE gdocs_templates SET name = ?, description = ?, available_ranks = ?';
+    let updateQuery = 'UPDATE gdocs_templates SET name = $1, description = $2, available_ranks = $3';
     let params = [name, description, availableRanks];
     
     // Falls neue Datei hochgeladen
     if (req.file) {
-        updateQuery += ', file_path = ?, original_filename = ?';
+        updateQuery += ', file_path = $4, original_filename = $5';
         params.push(req.file.path, req.file.originalname);
     }
     
-    updateQuery += ' WHERE id = $1';
+    updateQuery += ' WHERE id = $6';
     params.push(id);
     
     db.run(updateQuery, params, function(err) {
@@ -652,10 +652,10 @@ app.put('/api/documents/:id', (req, res) => {
         
         // Update ausführen
         db.run(`UPDATE documents SET 
-                full_name = ?, birth_date = ?, address = ?, phone = ?, 
-                email = ?, purpose = ?, application_date = ?, additional_info = ?
-                WHERE id = $1`,
-                [fullName, birthDate, address, phone, email, purpose, applicationDate, additional, id],
+        full_name = $1, birth_date = $2, address = $3, phone = $4, 
+        purpose = $5, application_date = $6, additional_info = $7
+        WHERE id = $8`,
+        [fullName, birthDate, address, phone, purpose, applicationDate, additional, id],
                 function(err) {
                     if (err) {
                         console.error('❌ Fehler beim Update:', err);
@@ -1573,7 +1573,7 @@ app.get('/api/stats', (req, res) => {
                 }
                 
                 // Pending Registrierungen zählen
-                db.all('SELECT id FROM registrations WHERE status = "pending"', [], (err, pendingRegs) => {
+                db.all('SELECT id FROM registrations WHERE status = $1', ['pending'], (err, pendingRegs) => {
                     if (!err && pendingRegs) {
                         stats.pendingRegistrations = pendingRegs.length;
                     }
@@ -2750,41 +2750,6 @@ app.get('/api/test-db', (req, res) => {
     });
 });
 
-// Statistiken abrufen - Robuste Version ohne COUNT
-app.get('/api/stats', (req, res) => {
-    const stats = {
-        totalUsers: 0,
-        pendingRegistrations: 0,
-        activeUsers: 0
-    };
-    
-    // Benutzer zählen durch Abrufen aller Zeilen
-    db.all('SELECT id FROM users', [], (err, users) => {
-        if (!err && users) {
-            stats.totalUsers = users.length;
-            
-            // Aktive Benutzer zählen
-            db.all('SELECT id FROM users WHERE status = $1', ['approved'], (err, activeUsers) => {
-                if (!err && activeUsers) {
-                    stats.activeUsers = activeUsers.length;
-                }
-                
-                // Pending Registrierungen zählen
-                db.all('SELECT id FROM registrations WHERE status = "pending"', [], (err, pendingRegs) => {
-                    if (!err && pendingRegs) {
-                        stats.pendingRegistrations = pendingRegs.length;
-                    }
-                    
-                    // Antwort senden
-                    res.json(stats);
-                });
-            });
-        } else {
-            // Falls erste Abfrage fehlschlägt, trotzdem antworten
-            res.json(stats);
-        }
-    });
-});
 // ⚡ TEMPORÄRER SCHEMA-FIX ENDPOINT
 // Füge das am Ende von server.js hinzu, VOR der app.listen() Zeile
 
@@ -2999,6 +2964,7 @@ process.on('SIGINT', () => {
         process.exit(0);
     });
 });
+
 
 
 
