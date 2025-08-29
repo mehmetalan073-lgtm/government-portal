@@ -2126,7 +2126,7 @@ app.post('/api/request-username-change', (req, res) => {
 
 // Username Change Requests abrufen
 app.get('/api/username-change-requests', (req, res) => {
-    db.all('SELECT * FROM username_change_requests WHERE status = "pending" ORDER BY created_at DESC', (err, rows) => {
+    db.all('SELECT * FROM username_change_requests WHERE status = $1 ORDER BY created_at DESC', ['pending'], (err, rows) => {
         if (err) {
             return res.status(500).json({ error: 'Datenbankfehler' });
         }
@@ -2999,6 +2999,7 @@ process.on('SIGINT', () => {
         process.exit(0);
     });
 });
+
 
 
 
