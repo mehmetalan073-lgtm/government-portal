@@ -1281,7 +1281,7 @@ app.get('/api/all-documents', (req, res) => {
         query += ` WHERE d.document_type = 'manual'`;
         console.log('🔍 Filter: Nur manuelle Dokumente');
     } else if (filterType === 'template' && templateId) {
-        query += ` WHERE tr.template_id = ?`;
+        query += ` WHERE tr.template_id = $2`;
         queryParams.push(templateId);
         console.log('🔍 Filter: Nur Template ID', templateId);
     } else if (filterType === 'template') {
@@ -1461,7 +1461,7 @@ app.get('/api/generated-documents/:username', (req, res) => {
     db.all(`SELECT d.*, u.full_name as creator_full_name 
             FROM documents d
             LEFT JOIN users u ON d.created_by = u.username 
-            WHERE d.created_by = ? AND d.generated_docx_path IS NOT NULL
+            WHERE d.created_by = $1 AND d.generated_docx_path IS NOT NULL
             ORDER BY d.created_at DESC`,
             [username], (err, rows) => {
         if (err) {
@@ -2673,7 +2673,7 @@ app.get('/api/template-responses/:templateId', (req, res) => {
             FROM template_responses tr 
             LEFT JOIN users u ON tr.submitted_by = u.username 
             LEFT JOIN gdocs_templates gt ON tr.template_id = gt.id 
-            WHERE tr.template_id = ? 
+            WHERE tr.template_id = $1
             ORDER BY tr.created_at DESC`, 
             [templateId], (err, rows) => {
         if (err) {
@@ -2964,6 +2964,7 @@ process.on('SIGINT', () => {
         process.exit(0);
     });
 });
+
 
 
 
