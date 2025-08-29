@@ -2155,14 +2155,14 @@ app.post('/api/approve-username-change/:id', (req, res) => {
             }
             
             // Username in users Tabelle ändern
-            db.run('UPDATE users SET username = ? WHERE username = $1', 
+            db.run('UPDATE users SET username = $1 WHERE username = $2', 
                    [request.new_username, request.current_username], (err) => {
                 if (err) {
                     return res.status(500).json({ error: 'Fehler beim Username-Update' });
                 }
                 
                 // Request als genehmigt markieren
-                db.run(`UPDATE username_change_requests SET status = 'approved', approved_by = ?, approved_at = CURRENT_TIMESTAMP WHERE id = $1`,
+                db.run(`UPDATE username_change_requests SET status = 'approved', approved_by = $1, approved_at = CURRENT_TIMESTAMP WHERE id = $2`,
                        [adminUsername, id], (err) => {
                     if (err) {
                         return res.status(500).json({ error: 'Datenbankfehler' });
@@ -2188,7 +2188,7 @@ app.post('/api/reject-username-change/:id', (req, res) => {
             return res.status(404).json({ error: 'Antrag nicht gefunden' });
         }
         
-        db.run(`UPDATE username_change_requests SET status = 'rejected', approved_by = ?, approved_at = CURRENT_TIMESTAMP WHERE id = $1`,
+        db.run(`UPDATE username_change_requests SET status = 'rejected', approved_by = $1, approved_at = CURRENT_TIMESTAMP WHERE id = $2`,
                [adminUsername, id], (err) => {
             if (err) {
                 return res.status(500).json({ error: 'Datenbankfehler' });
@@ -2999,6 +2999,7 @@ process.on('SIGINT', () => {
         process.exit(0);
     });
 });
+
 
 
 
