@@ -1328,7 +1328,7 @@ app.get('/api/download-generated/:documentId', (req, res) => {
     db.get(`SELECT d.*, u.full_name as creator_full_name 
             FROM documents d
             LEFT JOIN users u ON d.created_by = u.username 
-            WHERE d.id = ?`, [documentId], (err, document) => {
+            WHERE d.id = $1`, [documentId], (err, document) => {
         if (err) {
             console.error('❌ DB-Fehler beim Download:', err);
             return res.status(500).json({ error: 'Datenbankfehler' });
@@ -1383,7 +1383,7 @@ app.get('/api/preview-generated/:documentId', async (req, res) => {
             db.get(`SELECT d.*, u.full_name as creator_full_name 
                     FROM documents d
                     LEFT JOIN users u ON d.created_by = u.username 
-                    WHERE d.id = ?`, [documentId], (err, row) => {
+                    WHERE d.id = $1`, [documentId], (err, row) => {
                 if (err) reject(err);
                 else resolve(row);
             });
@@ -1620,7 +1620,7 @@ app.get('/api/document/:id', (req, res) => {
         LEFT JOIN users u ON d.created_by = u.username
         LEFT JOIN template_responses tr ON d.template_response_id = tr.id
         LEFT JOIN gdocs_templates gt ON tr.template_id = gt.id
-        WHERE d.id = ?
+        WHERE d.id = $1
     `;
     
     db.get(query, [id], (err, document) => {
@@ -2999,6 +2999,7 @@ process.on('SIGINT', () => {
         process.exit(0);
     });
 });
+
 
 
 
