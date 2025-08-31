@@ -2014,7 +2014,6 @@ app.get('/api/template-types', (req, res) => {
     });
 });
 
-// ✅ KORRIGIERTE Template-Antwort API (POST)
 app.post('/api/submit-template-response', async (req, res) => {
     const { templateId, answers, submittedBy } = req.body;
     
@@ -2055,11 +2054,13 @@ app.post('/api/submit-template-response', async (req, res) => {
         
         console.log('✅ Template-Antwort gespeichert mit ID:', responseId);
         
-        // 3. DOCX-Datei generieren (falls Template-Datei vorhanden)
+        // 3. ✅ FIXE: Variablen AUSSERHALB des try-Blocks initialisieren
         let generatedDocxPath = null;
         let generatedFilename = null;
         let generatedFileNumber = null;
+        let docxBuffer = null; // ✅ HIER IST DER FIX!
         
+        // 4. DOCX-Datei generieren (falls Template-Datei vorhanden)
         if (template.file_path && fs.existsSync(template.file_path)) {
             try {
                 generatedFilename = generateUniqueFilename(template.name, submittedBy);
@@ -2074,21 +2075,22 @@ app.post('/api/submit-template-response', async (req, res) => {
                 );
                 
                 generatedDocxPath = result.path;
-generatedFileNumber = result.fileNumber;
-const docxBuffer = result.docxBuffer;
-
-console.log('✅ DOCX-Datei generiert:', generatedDocxPath);
+                generatedFileNumber = result.fileNumber;
+                docxBuffer = result.docxBuffer; // ✅ Jetzt sicher zuweisen
+                
+                console.log('✅ DOCX-Datei generiert:', generatedDocxPath);
                 console.log('🔢 File-Nummer:', generatedFileNumber);
                 
             } catch (docxError) {
                 console.error('⚠️ DOCX-Generation fehlgeschlagen:', docxError);
-                // Weitermachen ohne DOCX
+                // docxBuffer bleibt null - das ist okay!
             }
         } else {
             console.log('⚠️ Template-Datei nicht gefunden:', template.file_path);
+            // docxBuffer bleibt null - das ist okay!
         }
         
-        // 4. Dokument-Eintrag erstellen
+        // 5. Extrahiere relevante Daten aus den Antworten
         let fullName = 'Unbekannt';
         let email = '';
         let phone = '';
@@ -2096,14 +2098,12 @@ console.log('✅ DOCX-Datei generiert:', generatedDocxPath);
         let birthDate = '';
         let additionalInfo = '';
         
-        // Extrahiere relevante Daten aus den Antworten
-        // Extrahiere relevante Daten aus den Antworten
-for (const [fieldId, value] of Object.entries(answers)) {
-    const lowerFieldId = fieldId.toLowerCase();
-    
-    if (lowerFieldId.includes('name') || fieldId === 'field-1') {
-        fullName = value;
-    } else if (lowerFieldId.includes('phone') || lowerFieldId.includes('tel')) {
+        for (const [fieldId, value] of Object.entries(answers)) {
+            const lowerFieldId = fieldId.toLowerCase();
+            
+            if (lowerFieldId.includes('name') || fieldId === 'field-1') {
+                fullName = value;
+            } else if (lowerFieldId.includes('phone') || lowerFieldId.includes('tel')) {
                 phone = value;
             } else if (lowerFieldId.includes('address') || lowerFieldId.includes('adresse')) {
                 address = value;
@@ -2115,19 +2115,20 @@ for (const [fieldId, value] of Object.entries(answers)) {
         }
         
         console.log('📊 Extrahierte Daten:', { fullName, email, phone, address, birthDate });
+        console.log('🔍 docxBuffer Status:', docxBuffer ? `${docxBuffer.length} Bytes` : 'null');
         
-        // 5. Dokument in DB erstellen
+        // 6. Dokument in DB erstellen - ✅ docxBuffer ist jetzt sicher definiert
         const purpose = `Fragebogen: ${template.name}`;
         const applicationDate = new Date().toISOString().split('T')[0];
         
         const documentId = await new Promise((resolve, reject) => {
             db.run(`INSERT INTO documents (full_name, birth_date, address, phone, 
-    purpose, application_date, additional_info, created_by, template_response_id, 
-    document_type, generated_docx_path, generated_filename, file_number, docx_data) 
-    VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14)`,
-    [fullName, birthDate, address, phone, purpose, 
-     applicationDate, additionalInfo.trim(), submittedBy, responseId, 'template',
-     generatedDocxPath, generatedFilename, generatedFileNumber, docxBuffer],
+                    purpose, application_date, additional_info, created_by, template_response_id, 
+                    document_type, generated_docx_path, generated_filename, file_number, docx_data) 
+                    VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14)`,
+                    [fullName, birthDate, address, phone, purpose, 
+                     applicationDate, additionalInfo.trim(), submittedBy, responseId, 'template',
+                     generatedDocxPath, generatedFilename, generatedFileNumber, docxBuffer], // ✅ Jetzt sicher!
                     function(err) {
                         if (err) reject(err);
                         else resolve(this.lastID);
@@ -2136,7 +2137,7 @@ for (const [fieldId, value] of Object.entries(answers)) {
         
         console.log('✅ Dokument erstellt mit ID:', documentId);
         
-        // 6. Log-Einträge
+        // 7. Log-Einträge
         createLogEntry('TEMPLATE_RESPONSE_SUBMITTED', submittedBy, 'user', `Fragebogen "${template.name}" ausgefüllt`, null, req.ip);
         createLogEntry('DOCUMENT_CREATED', submittedBy, 'user', `Dokument aus Fragebogen "${template.name}" erstellt`, null, req.ip);
         
@@ -2144,7 +2145,7 @@ for (const [fieldId, value] of Object.entries(answers)) {
             createLogEntry('DOCX_GENERATED', submittedBy, 'user', `DOCX-Datei "${generatedFilename}" generiert`, null, req.ip);
         }
         
-        // 7. Erfolgreiche Antwort
+        // 8. Erfolgreiche Antwort
         res.json({ 
             success: true, 
             responseId: responseId,
@@ -2462,6 +2463,7 @@ process.on('SIGINT', () => {
         process.exit(0);
     });
 });
+
 
 
 
