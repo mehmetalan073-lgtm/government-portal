@@ -208,9 +208,10 @@ async function initializeDatabase() {
                 template_response_id INTEGER,
                 document_type TEXT DEFAULT 'manual',
                 generated_docx_path TEXT,
-                generated_filename TEXT,
+               generated_filename TEXT,
                 file_number TEXT,
                 preview_html TEXT,
+                docx_data BYTEA,
                 created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
             )
         `);
@@ -451,10 +452,12 @@ const userData = await new Promise((resolve, reject) => {
         console.log('✅ DOCX generiert:', outputPath);
         
         // Gib auch die File-Nummer zurück für weitere Verwendung
-        return { 
-            path: outputPath, 
-            fileNumber: fileNumber 
-        };
+        // Gib auch die File-Nummer zurück für weitere Verwendung
+return { 
+    path: outputPath, 
+    fileNumber: fileNumber,
+    docxBuffer: generatedBuffer
+};
         
     } catch (error) {
         console.error('❌ DOCX Generation Fehler:', error);
@@ -752,21 +755,37 @@ app.get('/api/download-generated/:documentId', (req, res) => {
             return res.status(404).json({ error: 'Keine generierte DOCX-Datei verfügbar' });
         }
         
-        const filePath = document.generated_docx_path;
-        
-        // Prüfe ob Datei existiert
-        if (!fs.existsSync(filePath)) {
-            console.error('❌ DOCX-Datei nicht gefunden:', filePath);
-            return res.status(404).json({ error: 'DOCX-Datei nicht gefunden auf Server' });
-        }
-        
-        console.log('📄 Sende DOCX-Datei:', filePath);
-        
-        // Log-Eintrag für Download
-        createLogEntry('DOCX_DOWNLOADED', 'system', 'system', `DOCX-Datei "${document.generated_filename}" heruntergeladen`, document.created_by, req.ip);
-        
-        // Datei senden
-        res.download(filePath, document.generated_filename, (err) => {
+        // Prüfe ob Datei in Datenbank oder Dateisystem vorhanden
+if (document.docx_data) {
+    console.log('📄 Sende DOCX aus Datenbank');
+    
+    // Log-Eintrag für Download
+    createLogEntry('DOCX_DOWNLOADED', 'system', 'system', `DOCX-Datei "${document.generated_filename}" heruntergeladen`, document.created_by, req.ip);
+    
+    // Setze Content-Headers für Download
+    res.setHeader('Content-Type', 'application/vnd.openxmlformats-officedocument.wordprocessingml.document');
+    res.setHeader('Content-Disposition', `attachment; filename="${document.generated_filename}"`);
+    
+    // Sende Buffer direkt
+    res.send(document.docx_data);
+    return;
+}
+
+const filePath = document.generated_docx_path;
+
+// Prüfe ob Datei im Dateisystem existiert
+if (!fs.existsSync(filePath)) {
+    console.error('❌ DOCX-Datei nicht gefunden (weder DB noch Dateisystem)');
+    return res.status(404).json({ error: 'DOCX-Datei nicht verfügbar' });
+}
+
+console.log('📄 Sende DOCX-Datei aus Dateisystem:', filePath);
+
+// Log-Eintrag für Download
+createLogEntry('DOCX_DOWNLOADED', 'system', 'system', `DOCX-Datei "${document.generated_filename}" heruntergeladen`, document.created_by, req.ip);
+
+// Datei senden
+res.download(filePath, document.generated_filename, (err) => {
             if (err) {
                 console.error('❌ Download-Fehler:', err);
                 if (!res.headersSent) {
@@ -811,8 +830,8 @@ app.get('/api/preview-generated/:documentId', async (req, res) => {
             console.log('🔍 DOCX Path:', document.generated_docx_path);
             console.log('🔍 DOCX existiert:', document.generated_docx_path ? fs.existsSync(document.generated_docx_path) : 'Kein Pfad');
             
-            // Prüfe ob DOCX-Datei vorhanden ist
-            if (!document.generated_docx_path || !fs.existsSync(document.generated_docx_path)) {
+            // Prüfe ob DOCX-Datei in DB oder Dateisystem vorhanden ist
+if (!document.docx_data && (!document.generated_docx_path || !fs.existsSync(document.generated_docx_path))) {
                 console.log('⚠️ Keine DOCX-Datei gefunden, zeige Fallback');
                 
                 // Fallback: Zeige Dokument-Informationen als HTML
@@ -848,12 +867,21 @@ app.get('/api/preview-generated/:documentId', async (req, res) => {
             }
             
             try {
-                console.log('🔄 Konvertiere DOCX zu HTML:', document.generated_docx_path);
-                
-                // DOCX-Datei mit mammoth zu HTML konvertieren
-                const result = await mammoth.convertToHtml({
-                    path: document.generated_docx_path
-                });
+                console.log('🔄 Konvertiere DOCX zu HTML');
+
+// DOCX-Datei mit mammoth zu HTML konvertieren
+let result;
+if (document.docx_data) {
+    console.log('📄 Konvertiere DOCX aus Datenbank');
+    result = await mammoth.convertToHtml({
+        buffer: document.docx_data
+    });
+} else {
+    console.log('📄 Konvertiere DOCX aus Dateisystem:', document.generated_docx_path);
+    result = await mammoth.convertToHtml({
+        path: document.generated_docx_path
+    });
+}
                 
                 let docxHtml = result.value;
                 const messages = result.messages;
@@ -2046,9 +2074,10 @@ app.post('/api/submit-template-response', async (req, res) => {
                 );
                 
                 generatedDocxPath = result.path;
-                generatedFileNumber = result.fileNumber;
-                
-                console.log('✅ DOCX-Datei generiert:', generatedDocxPath);
+generatedFileNumber = result.fileNumber;
+const docxBuffer = result.docxBuffer;
+
+console.log('✅ DOCX-Datei generiert:', generatedDocxPath);
                 console.log('🔢 File-Nummer:', generatedFileNumber);
                 
             } catch (docxError) {
@@ -2093,12 +2122,12 @@ for (const [fieldId, value] of Object.entries(answers)) {
         
         const documentId = await new Promise((resolve, reject) => {
             db.run(`INSERT INTO documents (full_name, birth_date, address, phone, 
-        purpose, application_date, additional_info, created_by, template_response_id, 
-        document_type, generated_docx_path, generated_filename, file_number) 
-        VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13)`,
-        [fullName, birthDate, address, phone, purpose, 
-         applicationDate, additionalInfo.trim(), submittedBy, responseId, 'template',
-         generatedDocxPath, generatedFilename, generatedFileNumber],
+    purpose, application_date, additional_info, created_by, template_response_id, 
+    document_type, generated_docx_path, generated_filename, file_number, docx_data) 
+    VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14)`,
+    [fullName, birthDate, address, phone, purpose, 
+     applicationDate, additionalInfo.trim(), submittedBy, responseId, 'template',
+     generatedDocxPath, generatedFilename, generatedFileNumber, docxBuffer],
                     function(err) {
                         if (err) reject(err);
                         else resolve(this.lastID);
@@ -2433,6 +2462,7 @@ process.on('SIGINT', () => {
         process.exit(0);
     });
 });
+
 
 
 
