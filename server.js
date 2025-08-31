@@ -961,104 +961,6 @@ async function loadUserDocuments() {
     }
 }
 
-
-// Erweiterte updateDocumentsList Funktion
-function updateDocumentsList(documents, viewMode = 'my') {
-    console.log('📋 updateDocumentsList() gestartet mit:', documents, 'View-Modus:', viewMode);
-    
-    const container = document.getElementById('documentsListContainer');
-    if (!container) {
-        console.error('❌ documentsListContainer in updateDocumentsList nicht gefunden!');
-        return;
-    }
-    
-    if (!documents) {
-        console.warn('⚠️ Keine Dokumente übergeben (undefined/null)');
-        container.innerHTML = '<p style="text-align: center; color: #666; padding: 40px;">Fehler: Keine Daten erhalten</p>';
-        return;
-    }
-    
-    if (documents.length === 0) {
-        const emptyMessage = viewMode === 'all' 
-            ? 'Noch keine Dokumente im System vorhanden' 
-            : 'Noch keine eigenen Dokumente erstellt';
-        console.log('📭', emptyMessage);
-        container.innerHTML = `<p style="text-align: center; color: #666; padding: 40px;">${emptyMessage}</p>`;
-        return;
-    }
-
-    console.log('🔄 Erstelle HTML für', documents.length, 'Dokumente');
-    
-    const documentsHtml = documents.map((doc, index) => {
-        console.log(`📄 Dokument ${index + 1}:`, doc);
-        
-        // Zusätzliche Anzeige für "Alle Dokumente" Modus
-        const creatorInfo = viewMode === 'all' && doc.created_by !== currentSession.user.username 
-            ? `<p><strong>Erstellt von:</strong> <span style="color: #6a4c93; font-weight: 600;">${doc.created_by}</span></p>` 
-            : '';
-        
-        // Zeige verschiedene Aktionen basierend auf Berechtigung
-        const isOwnDocument = doc.created_by === currentSession.user.username;
-        const canEdit = isOwnDocument;
-        const canDelete = isOwnDocument;
-        
-        // DOCX Download & Vorschau Buttons
-const docxButtons = doc.generated_docx_path ? `
-    <button class="btn-success" onclick="downloadGeneratedDocx(${doc.id})" title="Generierte DOCX-Datei herunterladen">📥 DOCX Download</button>
-    <button class="btn-secondary" onclick="previewGeneratedDocx(${doc.id})" title="DOCX-Vorschau anzeigen">👁️ Vorschau</button>
-` : '';
-
-const actionButtons = `
-    <button class="btn-secondary" onclick="viewDocumentDetails(${doc.id})">👁️ Details</button>
-    ${docxButtons}
-    ${canEdit ? `<button class="btn-warning" onclick="editDocument(${doc.id})">✏️ Bearbeiten</button>` : ''}
-    ${canDelete ? `<button class="btn-danger" onclick="deleteDocument(${doc.id})">🗑️ Löschen</button>` : ''}
-`;
-        
-        // Document-Type Badge mit DOCX-Indikator
-let typeBadge = '';
-if (doc.document_type === 'template') {
-    typeBadge = '<span style="background: #17a2b8; color: white; padding: 2px 8px; border-radius: 3px; font-size: 11px; margin-left: 10px;">📋 FRAGEBOGEN</span>';
-    if (doc.generated_docx_path) {
-        typeBadge += '<span style="background: #28a745; color: white; padding: 2px 8px; border-radius: 3px; font-size: 11px; margin-left: 5px;">📄 DOCX</span>';
-    }
-} else {
-    typeBadge = '<span style="background: #6c757d; color: white; padding: 2px 8px; border-radius: 3px; font-size: 11px; margin-left: 10px;">📝 MANUELL</span>';
-}
-
-// DOCX-Info anzeigen falls vorhanden
-const docxInfo = doc.generated_docx_path ? `
-    <p><strong>Generierte Datei:</strong> 
-        <span style="color: #28a745; font-weight: 600;">${doc.generated_filename || 'Verfügbar'}</span>
-        <span style="font-size: 11px; background: #d4edda; color: #155724; padding: 2px 6px; border-radius: 3px; margin-left: 8px;">
-            📄 DOCX verfügbar
-        </span>
-    </p>
-` : '';
-        return `
-            <div class="document-item" style="${!isOwnDocument ? 'border-left: 4px solid #17a2b8;' : ''}">
-                <div class="document-date">Erstellt: ${new Date(doc.created_at).toLocaleString('de-DE')}</div>
-                <div class="document-title">
-                    ${doc.full_name} - ${doc.purpose}
-                    ${typeBadge}
-                </div>
-                <div class="document-details">
-    ${creatorInfo}
-    ${doc.birth_date ? `<p><strong>Geburtsdatum:</strong> ${new Date(doc.birth_date).toLocaleDateString('de-DE')}</p>` : ''}
-    ${doc.address ? `<p><strong>Adresse:</strong> ${doc.address}</p>` : ''}
-    ${doc.phone ? `<p><strong>Telefon:</strong> ${doc.phone}</p>` : ''}
-    ${doc.application_date ? `<p><strong>Antragsdatum:</strong> ${new Date(doc.application_date).toLocaleDateString('de-DE')}</p>` : ''}
-    ${doc.additional_info ? `<p><strong>Zusätzliche Infos:</strong> ${doc.additional_info}</p>` : ''}
-    ${docxInfo}
-</div>
-        `;
-    }).join('');
-
-    console.log('✅ HTML erstellt, füge in Container ein...');
-    container.innerHTML = documentsHtml;
-    console.log('✅ Dokumente-Liste aktualisiert!');
-}
-
 // Log-Funktion für Dokument-Ansicht (optional)
 async function logDocumentViewChange(viewMode) {
     try {
@@ -2957,6 +2859,7 @@ process.on('SIGINT', () => {
         process.exit(0);
     });
 });
+
 
 
 
