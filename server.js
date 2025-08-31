@@ -781,73 +781,118 @@ app.get('/api/download-generated/:documentId', (req, res) => {
 
 // HTML-Vorschau der generierten DOCX-Datei
 // DOCX-Vorschau Endpoint (FÜGE DAS IN DEINE SERVER.JS EIN)
+// DOCX-Vorschau Endpoint - POSTGRESQL VERSION
 app.get('/api/preview-generated/:documentId', async (req, res) => {
     try {
         const { documentId } = req.params;
         console.log('📄 Vorschau angefordert für Dokument ID:', documentId);
         
-        // Hole Dokument aus der Datenbank
-        const stmt = db.prepare('SELECT * FROM documents WHERE id = ?');
-        const document = stmt.get(documentId);
-        
-        if (!document) {
-            return res.status(404).json({ 
-                success: false, 
-                error: 'Dokument nicht gefunden' 
-            });
-        }
-        
-        // Erstelle HTML-Vorschau (da wir keine echte DOCX-Konvertierung haben)
-        const previewHtml = `
-            <div style="max-width: 800px; margin: 0 auto; padding: 40px; font-family: 'Times New Roman', serif;">
-                <h1 style="text-align: center; margin-bottom: 30px; color: #2c2c2c;">
-                    ${document.document_type === 'template' ? '📋 Fragebogen-Dokument' : '📝 Behördendokument'}
-                </h1>
-                
-                <div style="margin-bottom: 30px;">
-                    <p><strong>Vollständiger Name:</strong> ${document.full_name}</p>
-                    ${document.birth_date ? `<p><strong>Geburtsdatum:</strong> ${new Date(document.birth_date).toLocaleDateString('de-DE')}</p>` : ''}
-                    ${document.address ? `<p><strong>Adresse:</strong> ${document.address}</p>` : ''}
-                    ${document.phone ? `<p><strong>Telefon:</strong> ${document.phone}</p>` : ''}
-                    ${document.application_date ? `<p><strong>Antragsdatum:</strong> ${new Date(document.application_date).toLocaleDateString('de-DE')}</p>` : ''}
-                </div>
-                
-                <div style="margin-bottom: 30px;">
-                    <h3>Zweck/Begründung:</h3>
-                    <p style="line-height: 1.6;">${document.purpose}</p>
-                </div>
-                
-                ${document.additional_info ? `
-                    <div style="margin-bottom: 30px;">
-                        <h3>Zusätzliche Informationen:</h3>
-                        <p style="line-height: 1.6;">${document.additional_info.replace(/\n/g, '<br>')}</p>
+        // PostgreSQL-kompatible Query (NICHT prepare!)
+        db.get('SELECT * FROM documents WHERE id = $1', [documentId], (err, document) => {
+            if (err) {
+                console.error('❌ DB Error:', err);
+                return res.status(500).json({ 
+                    success: false, 
+                    error: 'Datenbankfehler: ' + err.message 
+                });
+            }
+            
+            if (!document) {
+                return res.status(404).json({ 
+                    success: false, 
+                    error: 'Dokument nicht gefunden' 
+                });
+            }
+            
+            console.log('📄 Dokument gefunden:', document.full_name);
+            
+            // Formatiere Template-Antworten falls vorhanden
+            let templateAnswersHtml = '';
+            if (document.template_response_id) {
+                // Lade Template-Antworten
+                db.get('SELECT tr.answers, gt.name as template_name FROM template_responses tr LEFT JOIN gdocs_templates gt ON tr.template_id = gt.id WHERE tr.id = $1', 
+                       [document.template_response_id], (err, response) => {
+                    if (!err && response && response.answers) {
+                        try {
+                            const answers = JSON.parse(response.answers);
+                            templateAnswersHtml = `
+                                <div style="margin: 20px 0; padding: 20px; background: #f0f8ff; border-radius: 6px; border-left: 4px solid #17a2b8;">
+                                    <h3>📋 Fragebogen: ${response.template_name || 'Unbekannt'}</h3>
+                                    ${Object.entries(answers).map(([key, value]) => {
+                                        const displayValue = Array.isArray(value) ? value.join(', ') : value;
+                                        return `<p><strong>${key}:</strong> ${displayValue}</p>`;
+                                    }).join('')}
+                                </div>
+                            `;
+                        } catch (e) {
+                            templateAnswersHtml = '<p>📋 Fragebogen-Antworten vorhanden, aber nicht lesbar</p>';
+                        }
+                    }
+                    
+                    // HTML-Vorschau erstellen
+                    generatePreviewHtml();
+                });
+            } else {
+                generatePreviewHtml();
+            }
+            
+            function generatePreviewHtml() {
+                const previewHtml = `
+                    <div style="max-width: 800px; margin: 0 auto; padding: 40px; font-family: 'Times New Roman', serif; line-height: 1.6;">
+                        <div style="text-align: center; margin-bottom: 40px; border-bottom: 2px solid #6a4c93; padding-bottom: 20px;">
+                            <h1 style="color: #2c2c2c; margin: 0; font-size: 28px;">
+                                ${document.document_type === 'template' ? '📋 Fragebogen-Dokument' : '📝 Behördendokument'}
+                            </h1>
+                            ${document.file_number ? `<p style="color: #6a4c93; font-weight: 600; margin: 10px 0; font-size: 18px;">${document.file_number}</p>` : ''}
+                        </div>
+                        
+                        <div style="margin-bottom: 30px;">
+                            <table style="width: 100%; border-collapse: collapse;">
+                                <tr><td style="padding: 8px 0; border-bottom: 1px solid #eee;"><strong>Name:</strong></td><td style="padding: 8px 0; border-bottom: 1px solid #eee;">${document.full_name}</td></tr>
+                                ${document.birth_date ? `<tr><td style="padding: 8px 0; border-bottom: 1px solid #eee;"><strong>Geburtsdatum:</strong></td><td style="padding: 8px 0; border-bottom: 1px solid #eee;">${new Date(document.birth_date).toLocaleDateString('de-DE')}</td></tr>` : ''}
+                                ${document.address ? `<tr><td style="padding: 8px 0; border-bottom: 1px solid #eee;"><strong>Adresse:</strong></td><td style="padding: 8px 0; border-bottom: 1px solid #eee;">${document.address}</td></tr>` : ''}
+                                ${document.phone ? `<tr><td style="padding: 8px 0; border-bottom: 1px solid #eee;"><strong>Telefon:</strong></td><td style="padding: 8px 0; border-bottom: 1px solid #eee;">${document.phone}</td></tr>` : ''}
+                                ${document.application_date ? `<tr><td style="padding: 8px 0; border-bottom: 1px solid #eee;"><strong>Antragsdatum:</strong></td><td style="padding: 8px 0; border-bottom: 1px solid #eee;">${new Date(document.application_date).toLocaleDateString('de-DE')}</td></tr>` : ''}
+                            </table>
+                        </div>
+                        
+                        <div style="margin-bottom: 30px;">
+                            <h3 style="color: #2c2c2c; margin-bottom: 15px;">Zweck/Begründung:</h3>
+                            <div style="padding: 20px; background: #f8f9fa; border-radius: 6px; border-left: 4px solid #6a4c93;">
+                                ${document.purpose.replace(/\n/g, '<br>')}
+                            </div>
+                        </div>
+                        
+                        ${document.additional_info ? `
+                            <div style="margin-bottom: 30px;">
+                                <h3 style="color: #2c2c2c; margin-bottom: 15px;">Zusätzliche Informationen:</h3>
+                                <div style="padding: 20px; background: #f8f9fa; border-radius: 6px;">
+                                    ${document.additional_info.replace(/\n/g, '<br>')}
+                                </div>
+                            </div>
+                        ` : ''}
+                        
+                        ${templateAnswersHtml}
+                        
+                        <div style="margin-top: 40px; text-align: center; font-size: 12px; color: #666; border-top: 1px solid #eee; padding-top: 20px;">
+                            <p><strong>Erstellt:</strong> ${new Date(document.created_at).toLocaleString('de-DE')}</p>
+                            <p><strong>Dokument-ID:</strong> ${document.id} | <strong>Erstellt von:</strong> ${document.created_by}</p>
+                        </div>
                     </div>
-                ` : ''}
+                `;
                 
-                ${document.template_answers ? `
-                    <div style="margin-bottom: 30px; padding: 20px; background: #f8f9fa; border-radius: 6px;">
-                        <h3>📋 Fragebogen-Antworten:</h3>
-                        ${formatTemplateAnswers(document.template_answers)}
-                    </div>
-                ` : ''}
-                
-                <div style="margin-top: 40px; text-align: center; font-size: 12px; color: #666;">
-                    <p>Erstellt am: ${new Date(document.created_at).toLocaleString('de-DE')}</p>
-                    <p>Dokument-ID: ${document.id} | Erstellt von: ${document.created_by}</p>
-                </div>
-            </div>
-        `;
-        
-        res.json({
-            success: true,
-            html: previewHtml,
-            documentInfo: {
-                id: document.id,
-                filename: `${document.full_name.replace(/\s+/g, '_')}_${document.id}.docx`,
-                name: document.full_name,
-                purpose: document.purpose,
-                created: document.created_at,
-                creator: document.created_by
+                res.json({
+                    success: true,
+                    html: previewHtml,
+                    documentInfo: {
+                        id: document.id,
+                        filename: `${document.full_name.replace(/\s+/g, '_')}_${document.id}.docx`,
+                        name: document.full_name,
+                        purpose: document.purpose,
+                        created: document.created_at,
+                        creator: document.created_by
+                    }
+                });
             }
         });
         
@@ -2378,6 +2423,7 @@ process.on('SIGINT', () => {
         process.exit(0);
     });
 });
+
 
 
 
