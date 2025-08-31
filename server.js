@@ -1612,7 +1612,6 @@ app.get('/api/document/:id', (req, res) => {
             d.*,
             u.full_name as creator_full_name,
             u.rank as creator_rank,
-            u.email as creator_email,
             tr.answers as template_answers,
             gt.name as template_name,
             gt.description as template_description
@@ -2964,6 +2963,7 @@ process.on('SIGINT', () => {
         process.exit(0);
     });
 });
+
 
 
 
