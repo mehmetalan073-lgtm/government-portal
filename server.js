@@ -407,7 +407,7 @@ const userData = await new Promise((resolve, reject) => {
         // ✅ DATUM & ZEIT
         templateData.generatedDate = now.toLocaleDateString('de-DE');
         templateData.generatedTime = now.toLocaleTimeString('de-DE');
-        templateData.generatedDateTime = now.toLocaleString('de-DE');
+        templateData.generatedDateTime = now.toLocaleString('de-DE', { timeZone: 'Europe/Berlin' })
         templateData.currentYear = now.getFullYear().toString();
         templateData.currentMonth = (now.getMonth() + 1).toString().padStart(2, '0');
         templateData.currentDay = now.getDate().toString().padStart(2, '0');
@@ -2446,6 +2446,7 @@ process.on('SIGINT', () => {
         process.exit(0);
     });
 });
+
 
 
 
