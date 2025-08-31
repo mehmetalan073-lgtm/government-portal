@@ -89,8 +89,6 @@ if (!process.env.DATABASE_URL) {
 
 console.log('🗃️ PostgreSQL-Verbindung initialisiert');
 
-// SQLite-kompatible Wrapper (KORRIGIERT)
-// SQLite-kompatible Wrapper (KORRIGIERT)
 const db = {
   run: (query, params, callback) => {
     if (typeof params === 'function') {
@@ -104,14 +102,14 @@ const db = {
           callback(err);
         } else {
           const context = {
-            lastID: result.rows && result.rows[0] && result.rows[0].id ? result.rows[0].id : null,
+            lastID: result.rows && result.rows.length > 0 ? result.rows[0].id : null,
             changes: result.rowCount || 0
           };
-          callback.call(context, null);  // <- DAS FEHLT!
-        }                               // <- DAS FEHLT!
-      }                                 // <- DAS FEHLT!
-    });                                 // <- DAS FEHLT!
-  },                                    // <- DAS FEHLT!
+          callback.call(context, null);
+        }
+      }
+    });
+  },
 
   get: (query, params, callback) => {
     if (typeof params === 'function') {
@@ -1408,7 +1406,7 @@ app.post('/api/register', (req, res) => {
     const passwordHash = bcrypt.hashSync(password, 10);
     
     db.run(`INSERT INTO registrations (username, password_hash, full_name, reason) 
-        VALUES ($1, $2, $3, $4)`, 
+    VALUES ($1, $2, $3, $4) RETURNING id`,
         [username, passwordHash, fullName, reason],
             function(err) {
                 if (err) {
@@ -1729,8 +1727,8 @@ app.post('/api/create-document', (req, res) => {
     
     // ✅ KORRIGIERTES SQL - Parameter-Anzahl stimmt jetzt überein
     db.run(`INSERT INTO documents (full_name, birth_date, address, phone, 
-        purpose, application_date, additional_info, created_by, document_type) 
-        VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)`,
+    purpose, application_date, additional_info, created_by, document_type) 
+    VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9) RETURNING id`,
         [fullName, birthDate, address, phone, purpose, 
          applicationDate, additional, createdBy, 'manual'],
             //                                    ^^^^^^^^^ 
@@ -1892,7 +1890,7 @@ app.post('/api/create-gdocs-template', upload.single('templateFile'), (req, res)
     }
     
     db.run(`INSERT INTO gdocs_templates (name, description, file_path, original_filename, available_ranks, questions, created_by) 
-            VALUES ($1, $2, $3, $4, $5, $6, $7)`,
+        VALUES ($1, $2, $3, $4, $5, $6, $7) RETURNING id`,
             [name, description, req.file.path, req.file.originalname, ranksString, questionsString, createdBy],
             function(err) {
                 if (err) {
@@ -2041,16 +2039,15 @@ app.post('/api/submit-template-response', async (req, res) => {
         
         console.log('📄 Template gefunden:', template.name);
         
-        // 2. Template-Antwort in DB speichern
         const responseId = await new Promise((resolve, reject) => {
-            db.run(`INSERT INTO template_responses (template_id, answers, submitted_by) 
-                    VALUES ($1, $2, $3)`,
-                    [templateId, answersString, submittedBy],
-                    function(err) {
-                        if (err) reject(err);
-                        else resolve(this.lastID);
-                    });
-        });
+    db.run(`INSERT INTO template_responses (template_id, answers, submitted_by) 
+            VALUES ($1, $2, $3) RETURNING id`,
+            [templateId, answersString, submittedBy],
+            function(err) {
+                if (err) reject(err);
+                else resolve(this.lastID);
+            });
+});
         
         console.log('✅ Template-Antwort gespeichert mit ID:', responseId);
         
@@ -2122,18 +2119,18 @@ app.post('/api/submit-template-response', async (req, res) => {
         const applicationDate = new Date().toISOString().split('T')[0];
         
         const documentId = await new Promise((resolve, reject) => {
-            db.run(`INSERT INTO documents (full_name, birth_date, address, phone, 
-                    purpose, application_date, additional_info, created_by, template_response_id, 
-                    document_type, generated_docx_path, generated_filename, file_number, docx_data) 
-                    VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14)`,
-                    [fullName, birthDate, address, phone, purpose, 
-                     applicationDate, additionalInfo.trim(), submittedBy, responseId, 'template',
-                     generatedDocxPath, generatedFilename, generatedFileNumber, docxBuffer], // ✅ Jetzt sicher!
-                    function(err) {
-                        if (err) reject(err);
-                        else resolve(this.lastID);
-                    });
-        });
+    db.run(`INSERT INTO documents (full_name, birth_date, address, phone, 
+            purpose, application_date, additional_info, created_by, template_response_id, 
+            document_type, generated_docx_path, generated_filename, file_number, docx_data) 
+            VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14) RETURNING id`,
+            [fullName, birthDate, address, phone, purpose, 
+             applicationDate, additionalInfo.trim(), submittedBy, responseId, 'template',
+             generatedDocxPath, generatedFilename, generatedFileNumber, docxBuffer],
+            function(err) {
+                if (err) reject(err);
+                else resolve(this.lastID);
+            });
+});
         
         console.log('✅ Dokument erstellt mit ID:', documentId);
         
@@ -2463,6 +2460,7 @@ process.on('SIGINT', () => {
         process.exit(0);
     });
 });
+
 
 
 
