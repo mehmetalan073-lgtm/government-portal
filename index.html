@@ -2474,6 +2474,7 @@ function showDocumentDetailsModal(documentData) {
                         ${documentData.address ? `<p><strong>Adresse:</strong> ${documentData.address}</p>` : ''}
                         ${documentData.phone ? `<p><strong>Telefon:</strong> ${documentData.phone}</p>` : ''}
                         ${documentData.application_date ? `<p><strong>Antragsdatum:</strong> ${new Date(documentData.application_date).toLocaleDateString('de-DE')}</p>` : ''}
+<p><strong>Antragsuhrzeit:</strong> ${new Date(documentData.created_at).toLocaleString('de-DE')}</p>
                         ${documentData.additional_info ? `<p><strong>Zusätzliche Informationen:</strong><br>${documentData.additional_info.replace(/\n/g, '<br>')}</p>` : ''}
                     </div>
                     
@@ -4338,6 +4339,7 @@ async function saveTemplateChanges(templateId) {
     </script>
 </body>
 </html>
+
 
 
 
