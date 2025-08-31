@@ -1633,13 +1633,7 @@ app.get('/api/document/:id', (req, res) => {
             return res.status(404).json({ error: 'Dokument nicht gefunden' });
         }
         
-        console.log('📄 Dokument-Details geladen:', {
-            id: document.id,
-            full_name: document.full_name,
-            created_by: document.created_by,
-            document_type: document.document_type
-        });
-        
+        console.log('✅ Dokument-Details geladen für ID:', id);
         res.json(document);
     });
 });
@@ -2963,6 +2957,7 @@ process.on('SIGINT', () => {
         process.exit(0);
     });
 });
+
 
 
 
