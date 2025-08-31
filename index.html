@@ -2540,12 +2540,14 @@ function updateDocumentsList(documents, viewMode = 'my', filterSettings = { filt
         const canDelete = isOwnDocument;
         
         // DOCX Download & Vorschau Buttons
-        const docxButtons = doc.generated_docx_path ? `
-            <button class="btn-success" onclick="downloadGeneratedDocx(${doc.id})" title="Generierte DOCX-Datei herunterladen">📥 DOCX</button>
-            <button class="btn-secondary" onclick="previewGeneratedDocx(${doc.id})" title="DOCX-Vorschau anzeigen">👁️ Vorschau</button>
-        ` : '';
+        // DOCX Download & Vorschau Buttons
+const docxButtons = doc.generated_docx_path ? `
+    <button class="btn-success" onclick="downloadGeneratedDocx(${doc.id})" title="Generierte DOCX-Datei herunterladen">📥 Download</button>
+    <button class="btn-secondary" onclick="previewGeneratedDocx(${doc.id})" title="Generierte DOCX-Datei als Vorschau anzeigen">👁️ DOCX Vorschau</button>
+` : '';
         
     const actionButtons = `
+    <button class="btn-secondary" onclick="viewDocumentDetails(${doc.id})" title="Dokument-Informationen anzeigen">ℹ️ Details</button>
     ${docxButtons}
     ${canEdit ? `<button class="btn-warning" onclick="editDocument(${doc.id})">✏️ Bearbeiten</button>` : ''}
     ${canDelete ? `<button class="btn-danger" onclick="deleteDocument(${doc.id})">🗑️ Löschen</button>` : ''}
@@ -4268,6 +4270,7 @@ async function saveTemplateChanges(templateId) {
     </script>
 </body>
 </html>
+
 
 
 
