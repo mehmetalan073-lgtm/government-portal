@@ -2607,11 +2607,11 @@ function updateDocumentsList(documents, viewMode = 'my', filterSettings = { filt
         ` : '';
         
         const actionButtons = `
-            <button class="btn-secondary" onclick="previewGeneratedDocx(${doc.id})">👁️ Vorschau</button>
-            ${docxButtons}
-            ${canEdit ? `<button class="btn-warning" onclick="editDocument(${doc.id})">✏️ Bearbeiten</button>` : ''}
-            ${canDelete ? `<button class="btn-danger" onclick="deleteDocument(${doc.id})">🗑️ Löschen</button>` : ''}
-        `;
+    const actionButtons = `
+    ${docxButtons}
+    ${canEdit ? `<button class="btn-warning" onclick="editDocument(${doc.id})">✏️ Bearbeiten</button>` : ''}
+    ${canDelete ? `<button class="btn-danger" onclick="deleteDocument(${doc.id})">🗑️ Löschen</button>` : ''}
+`;
         
         // Document-Type Badge mit Template-Name
         let typeBadge = '';
@@ -4339,6 +4339,7 @@ async function saveTemplateChanges(templateId) {
     </script>
 </body>
 </html>
+
 
 
 
