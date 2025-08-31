@@ -193,26 +193,26 @@ async function initializeDatabase() {
 
         // 3. Documents Tabelle
         await pool.query(`
-            CREATE TABLE IF NOT EXISTS documents (
-                id SERIAL PRIMARY KEY,
-                full_name TEXT NOT NULL,
-                birth_date TEXT,
-                address TEXT,
-                phone TEXT,
-                purpose TEXT NOT NULL,
-                application_date TEXT,
-                additional_info TEXT,
-                created_by TEXT NOT NULL,
-                template_response_id INTEGER,
-                document_type TEXT DEFAULT 'manual',
-                generated_docx_path TEXT,
-               generated_filename TEXT,
-                file_number TEXT,
-                preview_html TEXT,
-                docx_data BYTEA,
-                created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
-            )
-        `);
+    CREATE TABLE IF NOT EXISTS documents (
+        id SERIAL PRIMARY KEY,
+        full_name TEXT NOT NULL,
+        birth_date TEXT,
+        address TEXT,
+        phone TEXT,
+        purpose TEXT NOT NULL,
+        application_date TEXT,
+        additional_info TEXT,
+        created_by TEXT NOT NULL,
+        template_response_id INTEGER,
+        document_type TEXT DEFAULT 'manual',
+        generated_docx_path TEXT,
+        generated_filename TEXT,
+        file_number TEXT,
+        preview_html TEXT,
+        docx_data BYTEA,
+        created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+    )
+`);
         console.log('✅ Documents Tabelle erstellt/überprüft');
 
         // 4. System Log Tabelle
@@ -308,6 +308,16 @@ async function initializeDatabase() {
     } catch (error) {
         console.error('❌ Fehler bei Datenbank-Initialisierung:', error);
         return false;
+    }
+}
+
+// ✅ DOCX-Spalte hinzufügen falls sie fehlt
+try {
+    await pool.query(`ALTER TABLE documents ADD COLUMN IF NOT EXISTS docx_data BYTEA`);
+    console.log('✅ docx_data Spalte hinzugefügt/überprüft');
+} catch (error) {
+    if (!error.message.includes('already exists')) {
+        console.error('❌ Fehler beim Hinzufügen der docx_data Spalte:', error);
     }
 }
 
@@ -2460,6 +2470,7 @@ process.on('SIGINT', () => {
         process.exit(0);
     });
 });
+
 
 
 
