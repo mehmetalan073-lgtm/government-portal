@@ -854,16 +854,7 @@ body.dark .document-item[style*="border-left: 4px solid #17a2b8"] {
     ? 'http://localhost:3000/api'
     : '/api';
         let currentSession = { user: null, loginTime: null, isAdmin: false };
-        // Alle Funktionen global verfügbar machen
-function makeGlobal() {
-    const functions = ['attemptLogin', 'showRegister', 'submitRegistration', 'showLogin', 'logout', 'openDocumentsModal', 'toggleUserDropdown', 'showProfile', 'showSettings', 'backToDashboard', 'loadPendingUsers', 'loadAllUsers', 'loadSystemLog', 'goToHomePage'];
-    functions.forEach(fn => {
-        if (typeof window[fn] === 'undefined' && typeof eval(fn) === 'function') {
-            window[fn] = eval(fn);
-        }
-    });
-}
-
+        
         // Sichere API-Funktion (KORRIGIERT)
         async function apiCall(endpoint, options = {}) {
             try {
@@ -953,7 +944,7 @@ function makeGlobal() {
         }
 
         // Korrigierte attemptLogin Funktion
-async function attemptLogin() {
+window.attemptLogin = async function attemptLogin() {
     console.log('🔐 attemptLogin() aufgerufen');
     
     const username = document.getElementById('username').value.trim();
@@ -1050,7 +1041,7 @@ function closeDocxPreviewModal() {
 }
 
         // Registrierung
-        async function submitRegistration() {
+        window.submitRegistration = async function submitRegistration() {
             const userData = {
                 username: document.getElementById('newUsername').value.trim(),
                 fullName: document.getElementById('fullName').value.trim(),
@@ -4272,12 +4263,12 @@ async function saveTemplateChanges(templateId) {
             console.log('   - testDatabase() -> Testet Datenbank-Verbindung direkt');
             console.log('   - testTemplateWorkflow() -> Testet kompletten Fragebogen-Workflow');
             console.log('   - debugServerLogs() -> Zeigt Hinweise für Server-Log Debugging');
-            // Funktionen global verfügbar machen
-    makeGlobal();
+            
         });
     </script>
 </body>
 </html>
+
 
 
 
