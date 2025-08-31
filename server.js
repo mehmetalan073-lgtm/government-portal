@@ -790,7 +790,7 @@ app.get('/api/preview-generated/:documentId', async (req, res) => {
                 FROM documents d
                 LEFT JOIN template_responses tr ON d.template_response_id = tr.id
                 LEFT JOIN gdocs_templates gt ON tr.template_id = gt.id
-                WHERE d.id = $1`, [documentId], (err, document) => {
+                WHERE d.id = $1`, [documentId], async (err, document) => {
             
             if (err) {
                 console.error('❌ DB Error:', err);
@@ -808,115 +808,102 @@ app.get('/api/preview-generated/:documentId', async (req, res) => {
             }
             
             console.log('📄 Dokument gefunden:', document.full_name);
-            console.log('📋 Template-Antworten:', document.answers ? 'Vorhanden' : 'Keine');
+            console.log('🔍 DOCX Path:', document.generated_docx_path);
+            console.log('🔍 DOCX existiert:', document.generated_docx_path ? fs.existsSync(document.generated_docx_path) : 'Kein Pfad');
             
-            // Template-Antworten formatieren
-            let templateAnswersHtml = '';
-            if (document.answers) {
-                try {
-                    const answers = JSON.parse(document.answers);
-                    console.log('📝 Parsed Antworten:', answers);
-                    
-                    const answersHtml = Object.entries(answers).map(([fieldId, value]) => {
-                        const displayValue = Array.isArray(value) ? value.join(', ') : value;
-                        
-                        // Bessere Feldnamen basierend auf field-ID
-                        let fieldLabel = fieldId;
-                        if (fieldId === 'field-1') fieldLabel = 'Feld 1 (Name)';
-                        else if (fieldId === 'field-2') fieldLabel = 'Feld 2 (E-Mail)';
-                        else if (fieldId === 'field-3') fieldLabel = 'Feld 3 (Grund)';
-                        else if (fieldId.startsWith('field-')) {
-                            const num = fieldId.replace('field-', '');
-                            fieldLabel = `Feld ${num}`;
-                        }
-                        
-                        return `
-                            <tr style="border-bottom: 1px solid #eee;">
-                                <td style="padding: 12px 8px; font-weight: 600; width: 200px; vertical-align: top;">${fieldLabel}:</td>
-                                <td style="padding: 12px 8px; vertical-align: top;">${displayValue}</td>
-                            </tr>
-                        `;
-                    }).join('');
-                    
-                    templateAnswersHtml = `
-                        <div style="margin: 30px 0; padding: 25px; background: #f0f8ff; border-radius: 8px; border-left: 4px solid #17a2b8;">
-                            <h3 style="color: #17a2b8; margin-top: 0; margin-bottom: 20px;">📋 Fragebogen-Antworten: ${document.template_name || 'Unbekannt'}</h3>
-                            ${document.template_description ? `<p style="color: #666; margin-bottom: 20px; font-style: italic;">${document.template_description}</p>` : ''}
-                            <table style="width: 100%; border-collapse: collapse;">
-                                ${answersHtml}
-                            </table>
+            // Prüfe ob DOCX-Datei vorhanden ist
+            if (!document.generated_docx_path || !fs.existsSync(document.generated_docx_path)) {
+                console.log('⚠️ Keine DOCX-Datei gefunden, zeige Fallback');
+                
+                // Fallback: Zeige Dokument-Informationen als HTML
+                const fallbackHtml = `
+                    <div style="max-width: 800px; margin: 0 auto; padding: 40px; font-family: 'Times New Roman', serif;">
+                        <div style="text-align: center; margin-bottom: 30px; padding: 20px; background: #fff3cd; border: 1px solid #ffeaa7; border-radius: 6px;">
+                            <h1 style="color: #dc3545; margin: 0;">⚠️ DOCX-Datei nicht verfügbar</h1>
+                            <p style="color: #856404; margin-top: 10px;">Die generierte DOCX-Datei konnte nicht gefunden werden.</p>
                         </div>
-                    `;
-                } catch (e) {
-                    console.error('❌ Fehler beim Parsen der Antworten:', e);
-                    templateAnswersHtml = `
-                        <div style="margin: 20px 0; padding: 20px; background: #fff3cd; border-radius: 6px;">
-                            <p>📋 Fragebogen-Antworten vorhanden, aber nicht lesbar</p>
-                            <p style="font-size: 12px; color: #856404;">Raw data: ${document.answers.substring(0, 200)}...</p>
+                        
+                        <div style="margin: 20px 0; padding: 15px; background: #f8f9fa; border-radius: 6px;">
+                            <h3>📋 Verfügbare Informationen:</h3>
+                            <p><strong>Name:</strong> ${document.full_name}</p>
+                            <p><strong>Zweck:</strong> ${document.purpose}</p>
+                            <p><strong>Erstellt:</strong> ${new Date(document.created_at).toLocaleString('de-DE')}</p>
+                            ${document.file_number ? `<p><strong>Aktenzeichen:</strong> ${document.file_number}</p>` : ''}
                         </div>
-                    `;
-                }
+                    </div>
+                `;
+                
+                return res.json({
+                    success: true,
+                    html: fallbackHtml,
+                    documentInfo: {
+                        id: document.id,
+                        filename: `${document.full_name.replace(/\s+/g, '_')}_${document.id}.html`,
+                        name: document.full_name,
+                        purpose: document.purpose,
+                        created: document.created_at,
+                        creator: document.created_by
+                    }
+                });
             }
             
-            // HTML-Vorschau erstellen
-            const previewHtml = `
-                <div style="max-width: 800px; margin: 0 auto; padding: 40px; font-family: 'Times New Roman', serif; line-height: 1.6;">
-                    <div style="text-align: center; margin-bottom: 40px; border-bottom: 2px solid #6a4c93; padding-bottom: 20px;">
-                        <h1 style="color: #2c2c2c; margin: 0; font-size: 28px;">
-                            ${document.document_type === 'template' ? '📋 Fragebogen-Dokument' : '📝 Behördendokument'}
-                        </h1>
-                        ${document.file_number ? `<p style="color: #6a4c93; font-weight: 600; margin: 10px 0; font-size: 18px;">${document.file_number}</p>` : ''}
-                    </div>
-                    
-                    <div style="margin-bottom: 30px;">
-                        <h3 style="color: #2c2c2c; margin-bottom: 15px;">Dokument-Informationen:</h3>
-                        <table style="width: 100%; border-collapse: collapse;">
-                            <tr><td style="padding: 8px 0; border-bottom: 1px solid #eee; font-weight: 600; width: 200px;">Name:</td><td style="padding: 8px 0; border-bottom: 1px solid #eee;">${document.full_name}</td></tr>
-                            ${document.birth_date ? `<tr><td style="padding: 8px 0; border-bottom: 1px solid #eee; font-weight: 600;">Geburtsdatum:</td><td style="padding: 8px 0; border-bottom: 1px solid #eee;">${new Date(document.birth_date).toLocaleDateString('de-DE')}</td></tr>` : ''}
-                            ${document.address ? `<tr><td style="padding: 8px 0; border-bottom: 1px solid #eee; font-weight: 600;">Adresse:</td><td style="padding: 8px 0; border-bottom: 1px solid #eee;">${document.address}</td></tr>` : ''}
-                            ${document.phone ? `<tr><td style="padding: 8px 0; border-bottom: 1px solid #eee; font-weight: 600;">Telefon:</td><td style="padding: 8px 0; border-bottom: 1px solid #eee;">${document.phone}</td></tr>` : ''}
-                            ${document.application_date ? `<tr><td style="padding: 8px 0; border-bottom: 1px solid #eee; font-weight: 600;">Antragsdatum:</td><td style="padding: 8px 0; border-bottom: 1px solid #eee;">${new Date(document.application_date).toLocaleDateString('de-DE')}</td></tr>` : ''}
-                        </table>
-                    </div>
-                    
-                    <div style="margin-bottom: 30px;">
-                        <h3 style="color: #2c2c2c; margin-bottom: 15px;">Zweck/Begründung:</h3>
-                        <div style="padding: 20px; background: #f8f9fa; border-radius: 6px; border-left: 4px solid #6a4c93;">
-                            ${document.purpose.replace(/\n/g, '<br>')}
-                        </div>
-                    </div>
-                    
-                    ${document.additional_info ? `
-                        <div style="margin-bottom: 30px;">
-                            <h3 style="color: #2c2c2c; margin-bottom: 15px;">Zusätzliche Informationen:</h3>
-                            <div style="padding: 20px; background: #f8f9fa; border-radius: 6px;">
-                                ${document.additional_info.replace(/\n/g, '<br>')}
-                            </div>
-                        </div>
-                    ` : ''}
-                    
-                    ${templateAnswersHtml}
-                    
-                    <div style="margin-top: 40px; text-align: center; font-size: 12px; color: #666; border-top: 1px solid #eee; padding-top: 20px;">
-                        <p><strong>Erstellt:</strong> ${new Date(document.created_at).toLocaleString('de-DE')}</p>
-                        <p><strong>Dokument-ID:</strong> ${document.id} | <strong>Erstellt von:</strong> ${document.created_by}</p>
-                        ${document.document_type === 'template' ? '<p><strong>Typ:</strong> Fragebogen-basiertes Dokument</p>' : ''}
-                    </div>
-                </div>
-            `;
-            
-            res.json({
-                success: true,
-                html: previewHtml,
-                documentInfo: {
-                    id: document.id,
-                    filename: `${document.full_name.replace(/\s+/g, '_')}_${document.id}.docx`,
-                    name: document.full_name,
-                    purpose: document.purpose,
-                    created: document.created_at,
-                    creator: document.created_by
+            try {
+                console.log('🔄 Konvertiere DOCX zu HTML:', document.generated_docx_path);
+                
+                // DOCX-Datei mit mammoth zu HTML konvertieren
+                const result = await mammoth.convertToHtml({
+                    path: document.generated_docx_path
+                });
+                
+                let docxHtml = result.value;
+                const messages = result.messages;
+                
+                if (messages.length > 0) {
+                    console.log('⚠️ Mammoth Warnungen:', messages);
                 }
-            });
+                
+                console.log('✅ DOCX erfolgreich zu HTML konvertiert, HTML-Länge:', docxHtml.length);
+                
+                // Verbessere das HTML-Styling
+                const styledHtml = `
+                    <div style="max-width: 800px; margin: 0 auto; padding: 40px; font-family: 'Times New Roman', serif; line-height: 1.6; color: #333;">
+                        <div style="text-align: center; margin-bottom: 30px; padding-bottom: 20px; border-bottom: 2px solid #6a4c93;">
+                            <h1 style="color: #6a4c93; margin: 0;">📄 ${document.file_number || 'Behördendokument'}</h1>
+                            <p style="color: #666; margin-top: 10px;">Generiert am ${new Date().toLocaleString('de-DE')}</p>
+                        </div>
+                        
+                        <div style="background: white; padding: 20px; border-radius: 8px; box-shadow: 0 2px 10px rgba(0,0,0,0.1);">
+                            ${docxHtml}
+                        </div>
+                        
+                        <div style="margin-top: 30px; text-align: center; font-size: 12px; color: #666; border-top: 1px solid #eee; padding-top: 20px;">
+                            <p><strong>Dokument-ID:</strong> ${document.id} | <strong>Erstellt von:</strong> ${document.created_by}</p>
+                            <p><strong>Originalname:</strong> ${document.generated_filename || 'Unbekannt'}</p>
+                        </div>
+                    </div>
+                `;
+                
+                res.json({
+                    success: true,
+                    html: styledHtml,
+                    documentInfo: {
+                        id: document.id,
+                        filename: document.generated_filename || `${document.full_name.replace(/\s+/g, '_')}_${document.id}.docx`,
+                        name: document.full_name,
+                        purpose: document.purpose,
+                        created: document.created_at,
+                        creator: document.created_by
+                    }
+                });
+                
+            } catch (conversionError) {
+                console.error('❌ DOCX Konvertierung fehlgeschlagen:', conversionError);
+                
+                res.json({
+                    success: false,
+                    error: 'Fehler bei der DOCX-Konvertierung: ' + conversionError.message
+                });
+            }
         });
         
     } catch (error) {
@@ -2446,6 +2433,7 @@ process.on('SIGINT', () => {
         process.exit(0);
     });
 });
+
 
 
 
