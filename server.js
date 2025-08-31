@@ -780,85 +780,98 @@ app.get('/api/download-generated/:documentId', (req, res) => {
 });
 
 // HTML-Vorschau der generierten DOCX-Datei
+// DOCX-Vorschau Endpoint (FÜGE DAS IN DEINE SERVER.JS EIN)
 app.get('/api/preview-generated/:documentId', async (req, res) => {
-    const { documentId } = req.params;
-    
-    console.log('👁️ Vorschau-Anfrage für Dokument ID:', documentId);
-    
     try {
-        // Dokument aus DB laden
-        const document = await new Promise((resolve, reject) => {
-            db.get(`SELECT d.*, u.full_name as creator_full_name 
-                    FROM documents d
-                    LEFT JOIN users u ON d.created_by = u.username 
-                    WHERE d.id = $1`, [documentId], (err, row) => {
-                if (err) reject(err);
-                else resolve(row);
-            });
-        });
+        const { documentId } = req.params;
+        console.log('📄 Vorschau angefordert für Dokument ID:', documentId);
+        
+        // Hole Dokument aus der Datenbank
+        const stmt = db.prepare('SELECT * FROM documents WHERE id = ?');
+        const document = stmt.get(documentId);
         
         if (!document) {
-            return res.status(404).json({ error: 'Dokument nicht gefunden' });
-        }
-        
-        if (!document.generated_docx_path) {
-            return res.status(404).json({ error: 'Keine generierte DOCX-Datei verfügbar' });
-        }
-        
-        // Prüfe ob DOCX-Datei existiert
-        if (!fs.existsSync(document.generated_docx_path)) {
-            return res.status(404).json({ error: 'DOCX-Datei nicht gefunden auf Server' });
-        }
-        
-        // Prüfe ob HTML-Vorschau bereits existiert in DB
-        if (document.preview_html) {
-            console.log('📄 Verwende gespeicherte HTML-Vorschau');
-            return res.json({
-                success: true,
-                html: document.preview_html,
-                documentInfo: {
-                    name: document.full_name,
-                    purpose: document.purpose,
-                    created: document.created_at,
-                    filename: document.generated_filename
-                }
+            return res.status(404).json({ 
+                success: false, 
+                error: 'Dokument nicht gefunden' 
             });
         }
         
-        // HTML-Vorschau generieren
-        console.log('🔄 Generiere HTML-Vorschau...');
-        const htmlContent = await convertDocxToHtml(document.generated_docx_path);
-        
-        // HTML-Vorschau in DB speichern für zukünftige Aufrufe
-        db.run('UPDATE documents SET preview_html = ? WHERE id = $1', 
-               [htmlContent, documentId], (err) => {
-            if (err) {
-                console.error('⚠️ Fehler beim Speichern der HTML-Vorschau:', err);
-            } else {
-                console.log('✅ HTML-Vorschau in DB gespeichert');
-            }
-        });
-        
-        // Log-Eintrag für Vorschau
-        createLogEntry('DOCX_PREVIEWED', 'system', 'system', `DOCX-Vorschau für "${document.generated_filename}" angezeigt`, document.created_by, req.ip);
+        // Erstelle HTML-Vorschau (da wir keine echte DOCX-Konvertierung haben)
+        const previewHtml = `
+            <div style="max-width: 800px; margin: 0 auto; padding: 40px; font-family: 'Times New Roman', serif;">
+                <h1 style="text-align: center; margin-bottom: 30px; color: #2c2c2c;">
+                    ${document.document_type === 'template' ? '📋 Fragebogen-Dokument' : '📝 Behördendokument'}
+                </h1>
+                
+                <div style="margin-bottom: 30px;">
+                    <p><strong>Vollständiger Name:</strong> ${document.full_name}</p>
+                    ${document.birth_date ? `<p><strong>Geburtsdatum:</strong> ${new Date(document.birth_date).toLocaleDateString('de-DE')}</p>` : ''}
+                    ${document.address ? `<p><strong>Adresse:</strong> ${document.address}</p>` : ''}
+                    ${document.phone ? `<p><strong>Telefon:</strong> ${document.phone}</p>` : ''}
+                    ${document.application_date ? `<p><strong>Antragsdatum:</strong> ${new Date(document.application_date).toLocaleDateString('de-DE')}</p>` : ''}
+                </div>
+                
+                <div style="margin-bottom: 30px;">
+                    <h3>Zweck/Begründung:</h3>
+                    <p style="line-height: 1.6;">${document.purpose}</p>
+                </div>
+                
+                ${document.additional_info ? `
+                    <div style="margin-bottom: 30px;">
+                        <h3>Zusätzliche Informationen:</h3>
+                        <p style="line-height: 1.6;">${document.additional_info.replace(/\n/g, '<br>')}</p>
+                    </div>
+                ` : ''}
+                
+                ${document.template_answers ? `
+                    <div style="margin-bottom: 30px; padding: 20px; background: #f8f9fa; border-radius: 6px;">
+                        <h3>📋 Fragebogen-Antworten:</h3>
+                        ${formatTemplateAnswers(document.template_answers)}
+                    </div>
+                ` : ''}
+                
+                <div style="margin-top: 40px; text-align: center; font-size: 12px; color: #666;">
+                    <p>Erstellt am: ${new Date(document.created_at).toLocaleString('de-DE')}</p>
+                    <p>Dokument-ID: ${document.id} | Erstellt von: ${document.created_by}</p>
+                </div>
+            </div>
+        `;
         
         res.json({
             success: true,
-            html: htmlContent,
+            html: previewHtml,
             documentInfo: {
+                id: document.id,
+                filename: `${document.full_name.replace(/\s+/g, '_')}_${document.id}.docx`,
                 name: document.full_name,
                 purpose: document.purpose,
                 created: document.created_at,
-                filename: document.generated_filename,
-                creator: document.creator_full_name || document.created_by
+                creator: document.created_by
             }
         });
         
     } catch (error) {
         console.error('❌ Vorschau-Fehler:', error);
-        res.status(500).json({ error: 'Fehler beim Generieren der Vorschau: ' + error.message });
+        res.status(500).json({ 
+            success: false, 
+            error: 'Fehler beim Generieren der Vorschau: ' + error.message 
+        });
     }
 });
+
+// Hilfsfunktion für Template-Antworten
+function formatTemplateAnswers(templateAnswersJson) {
+    try {
+        const answers = JSON.parse(templateAnswersJson);
+        return Object.entries(answers).map(([key, value]) => {
+            const displayValue = Array.isArray(value) ? value.join(', ') : value;
+            return `<p><strong>${key}:</strong> ${displayValue}</p>`;
+        }).join('');
+    } catch (e) {
+        return '<p>Antworten können nicht angezeigt werden</p>';
+    }
+}
 
 // Alle generierten Dokumente für einen Benutzer abrufen
 app.get('/api/generated-documents/:username', (req, res) => {
@@ -2365,6 +2378,7 @@ process.on('SIGINT', () => {
         process.exit(0);
     });
 });
+
 
 
 
