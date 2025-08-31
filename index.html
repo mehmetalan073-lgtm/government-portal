@@ -2607,7 +2607,7 @@ function updateDocumentsList(documents, viewMode = 'my', filterSettings = { filt
         ` : '';
         
         const actionButtons = `
-            <button class="btn-secondary" onclick="viewDocumentDetails(${doc.id})">👁️ Details</button>
+            <button class="btn-secondary" onclick="previewGeneratedDocx(${doc.id})">👁️ Vorschau</button>
             ${docxButtons}
             ${canEdit ? `<button class="btn-warning" onclick="editDocument(${doc.id})">✏️ Bearbeiten</button>` : ''}
             ${canDelete ? `<button class="btn-danger" onclick="deleteDocument(${doc.id})">🗑️ Löschen</button>` : ''}
@@ -2666,26 +2666,6 @@ function updateDocumentsList(documents, viewMode = 'my', filterSettings = { filt
     console.log('✅ HTML erstellt, füge in Container ein...');
     container.innerHTML = documentsHtml;
     console.log('✅ Dokumente-Liste aktualisiert!');
-}
-
-// Neue Funktion: Generierte DOCX-Datei herunterladen
-async function downloadGeneratedDocx(documentId) {
-    // ... (kompletter Code aus paste.txt)
-}
-
-// Neue Funktion: DOCX-Vorschau anzeigen  
-async function previewGeneratedDocx(documentId) {
-    // ... (kompletter Code aus paste.txt)
-}
-
-// Neue Funktion: DOCX-Vorschau Modal anzeigen
-function showDocxPreviewModal(htmlContent, documentInfo) {
-    // ... (kompletter Code aus paste.txt)
-}
-
-// Modal schließen
-function closeDocxPreviewModal() {
-    // ... (kompletter Code aus paste.txt)
 }
 
 // Neue Funktion: Generierte DOCX-Datei herunterladen
@@ -4359,6 +4339,7 @@ async function saveTemplateChanges(templateId) {
     </script>
 </body>
 </html>
+
 
 
 
