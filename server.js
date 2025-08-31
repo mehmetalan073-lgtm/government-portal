@@ -1,4 +1,4 @@
-// ssserver.js v23 - FIXES: Dokument-Löschung + Fragebogen als Dokumente
+// server.js v23 - FIXES: Dokument-Löschung + Fragebogen als Dokumente
 const express = require('express');
 const { Pool } = require('pg');
 const bcrypt = require('bcrypt');
@@ -2433,6 +2433,7 @@ process.on('SIGINT', () => {
         process.exit(0);
     });
 });
+
 
 
 
