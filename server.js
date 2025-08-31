@@ -314,7 +314,7 @@ async function initializeDatabase() {
 // Log-Eintrag erstellen (Hilfsfunktion)
 function createLogEntry(action, performedBy, userRank, details, targetUser = null, ipAddress = null) {
     db.run(`INSERT INTO system_log (action, performed_by, user_rank, details, target_user, ip_address) 
-            VALUES ($1, $2, $3, $4, $5, $6)`,
+        VALUES ($1, $2, $3, $4, $5, $6) RETURNING id`,
             [action, performedBy, userRank, details, targetUser, ipAddress], (err) => {
                 if (err) console.error('Log Fehler:', err);
             });
@@ -1607,7 +1607,7 @@ app.post('/api/request-username-change', (req, res) => {
         }
         
         db.run(`INSERT INTO username_change_requests (current_username, new_username, reason) 
-                VALUES ($1, $2, $3)`, 
+        VALUES ($1, $2, $3) RETURNING id`,
                 [currentUsername, newUsername, reason], 
                 function(err) {
                     if (err) {
@@ -2041,7 +2041,7 @@ app.post('/api/submit-template-response', async (req, res) => {
         
         const responseId = await new Promise((resolve, reject) => {
     db.run(`INSERT INTO template_responses (template_id, answers, submitted_by) 
-            VALUES ($1, $2, $3) RETURNING id`,
+        VALUES ($1, $2, $3) RETURNING id`,
             [templateId, answersString, submittedBy],
             function(err) {
                 if (err) reject(err);
@@ -2460,6 +2460,7 @@ process.on('SIGINT', () => {
         process.exit(0);
     });
 });
+
 
 
 
