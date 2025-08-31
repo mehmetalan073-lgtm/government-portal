@@ -2606,7 +2606,6 @@ function updateDocumentsList(documents, viewMode = 'my', filterSettings = { filt
             <button class="btn-secondary" onclick="previewGeneratedDocx(${doc.id})" title="DOCX-Vorschau anzeigen">👁️ Vorschau</button>
         ` : '';
         
-        const actionButtons = `
     const actionButtons = `
     ${docxButtons}
     ${canEdit ? `<button class="btn-warning" onclick="editDocument(${doc.id})">✏️ Bearbeiten</button>` : ''}
@@ -4339,6 +4338,7 @@ async function saveTemplateChanges(templateId) {
     </script>
 </body>
 </html>
+
 
 
 
