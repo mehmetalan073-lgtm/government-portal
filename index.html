@@ -1041,59 +1041,6 @@ async function previewGeneratedDocx(documentId) {
     }
 }
 
-// Neue Funktion: DOCX-Vorschau Modal anzeigen
-function showDocxPreviewModal(htmlContent, documentInfo) {
-    // Entferne bereits vorhandenes Modal falls vorhanden
-    const existingModal = document.getElementById('docxPreviewModal');
-    if (existingModal) {
-        existingModal.remove();
-    }
-    
-    const previewModal = document.createElement('div');
-    previewModal.className = 'documents-modal active';
-    previewModal.id = 'docxPreviewModal';
-    
-    previewModal.innerHTML = `
-        <div class="documents-modal-content" style="max-width: 1200px; height: 90vh;">
-            <div class="documents-modal-header">
-                <h2 class="documents-modal-title">👁️ DOCX-Vorschau: ${documentInfo.filename || 'Dokument'}</h2>
-                <button class="documents-modal-close" onclick="closeDocxPreviewModal()">×</button>
-            </div>
-            <div class="documents-modal-body" style="padding: 20px;">
-                <div style="margin-bottom: 20px; padding: 15px; background: #f8f9fa; border-radius: 6px; display: flex; justify-content: space-between; align-items: center;">
-                    <div>
-                        <p style="margin: 0;"><strong>Dokument:</strong> ${documentInfo.name} - ${documentInfo.purpose}</p>
-                        <p style="margin: 5px 0 0 0; font-size: 13px; color: #666;">
-                            Erstellt: ${new Date(documentInfo.created).toLocaleString('de-DE')}
-                            ${documentInfo.creator ? ` | Ersteller: ${documentInfo.creator}` : ''}
-                        </p>
-                    </div>
-                    <button onclick="downloadGeneratedDocx(${documentInfo.id || 'null'})" class="btn-success" style="width: auto; padding: 8px 16px; margin: 0;">📥 Download DOCX</button>
-                </div>
-                
-                <div style="border: 1px solid #dee2e6; border-radius: 6px; padding: 20px; background: white; overflow-y: auto; max-height: calc(90vh - 200px);">
-                    <div style="font-family: 'Times New Roman', serif; line-height: 1.6; color: #333;">
-                        ${htmlContent}
-                    </div>
-                </div>
-                
-                <div style="margin-top: 15px; text-align: right;">
-                    <button onclick="closeDocxPreviewModal()" class="btn-secondary" style="width: auto; padding: 10px 20px;">Schließen</button>
-                </div>
-            </div>
-        </div>
-    `;
-    
-    document.body.appendChild(previewModal);
-    
-    // Modal außerhalb schließen
-    previewModal.addEventListener('click', function(e) {
-        if (e.target === previewModal) {
-            closeDocxPreviewModal();
-        }
-    });
-}
-
 // Modal schließen
 function closeDocxPreviewModal() {
     const modal = document.getElementById('docxPreviewModal');
@@ -2726,23 +2673,28 @@ function showDocxPreviewModal(htmlContent, documentInfo) {
     previewModal.className = 'documents-modal active';
     previewModal.id = 'docxPreviewModal';
     
-    previewModal.innerHTML = `
-        <div class="documents-modal-content" style="max-width: 1200px; height: 90vh;">
-            <div class="documents-modal-header">
-                <h2 class="documents-modal-title">👁️ DOCX-Vorschau: ${documentInfo.filename || 'Dokument'}</h2>
-                <button class="documents-modal-close" onclick="closeDocxPreviewModal()">×</button>
+previewModal.innerHTML = `
+    <div class="documents-modal-content" style="max-width: 95%; height: 95vh; margin: 20px;">
+        <div style="background: linear-gradient(135deg, #6a4c93 0%, #8b3b97 100%); color: white; padding: 15px 25px; display: flex; justify-content: space-between; align-items: center; border-radius: 8px 8px 0 0;">
+            <div>
+                <h2 style="margin: 0; font-size: 18px;">📄 ${documentInfo.filename || 'G-Docs Dokument'}</h2>
+                <p style="margin: 5px 0 0 0; font-size: 13px; opacity: 0.9;">
+                    ${documentInfo.name} • Erstellt: ${new Date(documentInfo.created).toLocaleString('de-DE', { timeZone: 'Europe/Berlin' })}
+                </p>
             </div>
-            <div class="documents-modal-body" style="padding: 20px;">
-                <div style="margin-bottom: 20px; padding: 15px; background: #f8f9fa; border-radius: 6px; display: flex; justify-content: space-between; align-items: center;">
-                    <div>
-                        <p style="margin: 0;"><strong>Dokument:</strong> ${documentInfo.name} - ${documentInfo.purpose}</p>
-                        <p style="margin: 5px 0 0 0; font-size: 13px; color: #666;">
-                            Erstellt: ${new Date(documentInfo.created).toLocaleString('de-DE')}
-                            ${documentInfo.creator ? ` | Ersteller: ${documentInfo.creator}` : ''}
-                        </p>
-                    </div>
-                    <button onclick="downloadGeneratedDocx(${documentInfo.id || 'null'})" class="btn-success" style="width: auto; padding: 8px 16px; margin: 0;">📥 Download DOCX</button>
-                </div>
+            <div style="display: flex; gap: 10px;">
+                <button onclick="downloadGeneratedDocx(${documentInfo.id || 'null'})" style="background: rgba(255,255,255,0.2); border: 1px solid rgba(255,255,255,0.3); color: white; padding: 8px 16px; border-radius: 6px; cursor: pointer;">📥 Download</button>
+                <button onclick="closeDocxPreviewModal()" style="background: none; border: none; color: white; font-size: 20px; cursor: pointer; padding: 5px;">×</button>
+            </div>
+        </div>
+        
+        <div style="flex: 1; overflow-y: auto; background: white;">
+            <div style="max-width: 800px; margin: 0 auto; padding: 40px; font-family: 'Times New Roman', serif; line-height: 1.6; color: #333; background: white; box-shadow: 0 0 20px rgba(0,0,0,0.1);">
+                ${htmlContent}
+            </div>
+        </div>
+    </div>
+`;
                 
                 <div style="border: 1px solid #dee2e6; border-radius: 6px; padding: 20px; background: white; overflow-y: auto; max-height: calc(90vh - 200px);">
                     <div style="font-family: 'Times New Roman', serif; line-height: 1.6; color: #333;">
@@ -4339,6 +4291,7 @@ async function saveTemplateChanges(templateId) {
     </script>
 </body>
 </html>
+
 
 
 
