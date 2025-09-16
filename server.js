@@ -312,6 +312,7 @@ async function initializeDatabase() {
 }
 
 // ✅ DOCX-Spalte hinzufügen falls sie fehlt
+(async () => {
 try {
     await pool.query(`ALTER TABLE documents ADD COLUMN IF NOT EXISTS docx_data BYTEA`);
     console.log('✅ docx_data Spalte hinzugefügt/überprüft');
@@ -320,6 +321,7 @@ try {
         console.error('❌ Fehler beim Hinzufügen der docx_data Spalte:', error);
     }
 }
+    })();
 
 // Log-Eintrag erstellen (Hilfsfunktion)
 function createLogEntry(action, performedBy, userRank, details, targetUser = null, ipAddress = null) {
@@ -2470,6 +2472,7 @@ process.on('SIGINT', () => {
         process.exit(0);
     });
 });
+
 
 
 
