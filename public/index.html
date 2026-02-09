@@ -10,19 +10,19 @@
 
     <div id="login-screen" class="screen active">
         <div class="login-box">
-            <h1>🏛️ Panel Login</h1>
+            <h1>🏛️ Login</h1>
             <input type="text" id="login-user" placeholder="Benutzername">
             <input type="password" id="login-pass" placeholder="Passwort">
             <button onclick="login()">Anmelden</button>
-            <p onclick="showRegister()" style="cursor:pointer; margin-top:10px; color:#7f8c8d;">Konto beantragen</p>
+            <p onclick="showRegister()" style="cursor:pointer; margin-top:10px;">Konto erstellen</p>
         </div>
     </div>
 
     <div id="register-screen" class="screen" style="display:none;">
         <div class="login-box">
-            <h1>📝 Registrierung</h1>
+            <h1>📝 Registrieren</h1>
             <input type="text" id="reg-user" placeholder="Username">
-            <input type="text" id="reg-name" placeholder="Voller Name">
+            <input type="text" id="reg-name" placeholder="Name">
             <input type="password" id="reg-pass" placeholder="Passwort">
             <button onclick="register()">Absenden</button>
             <button onclick="showLogin()" style="background:#7f8c8d; margin-top:10px;">Zurück</button>
@@ -32,15 +32,14 @@
     <div id="dashboard" class="screen" style="display:none;">
         <nav class="sidebar">
             <h2>Regierung</h2>
-            
             <div class="nav-links">
-                <button onclick="switchTab('docs')" class="active">📄 Akten</button>
-                <button onclick="switchTab('users')" id="admin-btn" style="display:none;">👥 Personal</button>
-                <button onclick="switchTab('colors')" id="colors-btn" style="display:none;">🎨 Rang-Farben</button>
+                <button id="nav-docs" onclick="switchTab('docs')">📄 Akten</button>
+                <button id="nav-users" onclick="switchTab('users')" style="display:none;">👥 Personal</button>
+                <button id="nav-ranks" onclick="switchTab('ranks')" style="display:none;">⚙️ Ränge & Rechte</button>
             </div>
 
             <div class="user-profile-bottom">
-                <div id="profile-name" class="user-name-display">Lade...</div>
+                <div id="profile-name" class="user-name-display">...</div>
                 <div id="profile-rank" class="user-rank-badge">Gast</div>
                 <button onclick="logout()" style="margin-top:10px; background:#c0392b; font-size:0.8em;">Logout</button>
             </div>
@@ -60,14 +59,38 @@
 
             <div id="tab-users" class="tab" style="display:none;">
                 <h2>Personalverwaltung</h2>
+                <div class="card">
+                    <h3>Benutzer Rang zuweisen</h3>
+                    <input type="text" id="assign-user" placeholder="Username eingeben">
+                    <select id="assign-rank-select"></select>
+                    <button onclick="assignRank()">Zuweisen</button>
+                </div>
                 <div id="users-list">Lade Personal...</div>
             </div>
 
-            <div id="tab-colors" class="tab" style="display:none;">
-                <h2>Rang-Farben anpassen</h2>
-                <div class="card">
-                    <div id="color-settings-list">Lade Farben...</div>
+            <div id="tab-ranks" class="tab" style="display:none;">
+                <h2>Rang-Verwaltung</h2>
+                
+                <div class="card" style="background: #eef2f3; border-left: 4px solid #2980b9;">
+                    <h3>Rang erstellen / Bearbeiten</h3>
+                    <input type="text" id="new-rank-name" placeholder="Rang Name (z.B. Polizei)">
+                    <div style="display:flex; align-items:center; gap:10px; margin:10px 0;">
+                        <span>Farbe:</span>
+                        <input type="color" id="new-rank-color" value="#3498db" style="height:40px; width:60px;">
+                    </div>
+                    
+                    <h4>Berechtigungen:</h4>
+                    <div class="perm-options">
+                        <label><input type="checkbox" id="perm-docs"> Akten lesen</label><br>
+                        <label><input type="checkbox" id="perm-users"> Personal verwalten</label><br>
+                        <label><input type="checkbox" id="perm-ranks"> Ränge verwalten</label>
+                    </div>
+                    
+                    <button onclick="saveRank()" style="margin-top:15px;">Speichern</button>
                 </div>
+
+                <h3>Aktive Ränge</h3>
+                <div id="ranks-list-container">Lade...</div>
             </div>
         </main>
     </div>
