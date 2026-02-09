@@ -1,0 +1,23 @@
+body { margin: 0; font-family: 'Segoe UI', sans-serif; background: #f4f4f9; color: #333; }
+.screen { width: 100vw; height: 100vh; display: flex; }
+
+/* Login Box */
+#login-screen, #register-screen { justify-content: center; align-items: center; background: #2c3e50; }
+.login-box { background: white; padding: 40px; border-radius: 8px; text-align: center; width: 300px; }
+input, textarea { width: 100%; padding: 10px; margin: 10px 0; border: 1px solid #ddd; box-sizing: border-box; }
+button { width: 100%; padding: 10px; background: #2c3e50; color: white; border: none; cursor: pointer; }
+button:hover { background: #34495e; }
+.btn-secondary { background: #95a5a6; }
+.btn-danger { background: #e74c3c; margin-top: auto; }
+
+/* Dashboard Layout */
+.sidebar { width: 250px; background: #2c3e50; color: white; display: flex; flex-direction: column; padding: 20px; }
+.sidebar button { margin-top: 10px; text-align: left; background: transparent; }
+.sidebar button:hover { background: rgba(255,255,255,0.1); }
+.content { flex: 1; padding: 40px; overflow-y: auto; }
+
+/* Cards & Lists */
+.card { background: white; padding: 20px; border-radius: 8px; box-shadow: 0 2px 5px rgba(0,0,0,0.1); margin-bottom: 20px; }
+.list-item { background: white; padding: 15px; border-bottom: 1px solid #eee; display: flex; justify-content: space-between; }
+.tab { display: none; }
+.tab.active { display: block; }
