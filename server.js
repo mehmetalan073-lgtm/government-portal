@@ -1452,26 +1452,25 @@ app.post('/api/approve-registration/:id', (req, res) => {
             return res.status(404).json({ error: 'Registrierung nicht gefunden' });
         }
         
-        // Benutzer mit Standard-Rang 'besucher' erstellen
+        // KORREKTUR: Nutze $4 statt ? für PostgreSQL
         db.run(`INSERT INTO users (username, password_hash, full_name, rank, role, status, approved_by, approved_at) 
-        VALUES ($1, $2, $3, 'besucher', 'user', 'approved', ?, CURRENT_TIMESTAMP)`,
+        VALUES ($1, $2, $3, 'besucher', 'user', 'approved', $4, CURRENT_TIMESTAMP)`,
         [registration.username, registration.password_hash, registration.full_name, adminUsername], (err) => {
-                    if (err) {
-                        return res.status(500).json({ error: 'Fehler beim Erstellen des Benutzers' });
-                    }
-                    
-                    db.run(`UPDATE registrations SET status = 'approved', approved_by = ?, approved_at = CURRENT_TIMESTAMP WHERE id = $1`,
-                            [adminUsername, id], (err) => {
-                                if (err) {
-                                    return res.status(500).json({ error: 'Fehler beim Update der Registrierung' });
-                                }
-                                
-                                // Log-Eintrag für Genehmigung
-                                createLogEntry('USER_APPROVED', adminUsername, 'admin', `Benutzer ${registration.username} genehmigt`, registration.username, req.ip);
-                                
-                                res.json({ success: true });
-                            });
-                });
+            if (err) {
+                return res.status(500).json({ error: 'Fehler beim Erstellen des Benutzers: ' + err.message });
+            }
+            
+            // KORREKTUR: Auch hier $1 und $2 verwenden
+            db.run(`UPDATE registrations SET status = 'approved', approved_by = $1, approved_at = CURRENT_TIMESTAMP WHERE id = $2`,
+            [adminUsername, id], (err) => {
+                if (err) {
+                    return res.status(500).json({ error: 'Fehler beim Update der Registrierung' });
+                }
+                
+                createLogEntry('USER_APPROVED', adminUsername, 'admin', `Benutzer ${registration.username} genehmigt`, registration.username, req.ip);
+                res.json({ success: true });
+            });
+        });
     });
 });
 
