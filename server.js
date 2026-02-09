@@ -1513,7 +1513,6 @@ app.post('/api/update-rank/:id', (req, res) => {
     const { id } = req.params;
     const { rank, adminUsername } = req.body;
     
-    // Prüfen ob Rang gültig ist
     const validRanks = ['nc-team', 'president', 'vice-president', 'admin', 'kabinettsmitglied', 
                         'socom-operator', 'user', 'besucher'];
     
@@ -1521,7 +1520,7 @@ app.post('/api/update-rank/:id', (req, res) => {
         return res.status(400).json({ error: 'Ungültiger Rang' });
     }
     
-    // Admin kann nicht degradiert werden
+    // Prüfen ob Benutzer existiert (PostgreSQL Syntax)
     db.get('SELECT username FROM users WHERE id = $1', [id], (err, user) => {
         if (err || !user) {
             return res.status(404).json({ error: 'Benutzer nicht gefunden' });
@@ -1531,14 +1530,13 @@ app.post('/api/update-rank/:id', (req, res) => {
             return res.status(403).json({ error: 'Admin-Rang kann nicht geändert werden' });
         }
         
-        db.run('UPDATE users SET rank = ? WHERE id = $1', [rank, id], (err) => {
+        // KORREKTUR: Nutze $1 und $2 statt ?
+        db.run('UPDATE users SET rank = $1 WHERE id = $2', [rank, id], (err) => {
             if (err) {
-                return res.status(500).json({ error: 'Datenbankfehler' });
+                return res.status(500).json({ error: 'Datenbankfehler: ' + err.message });
             }
             
-            // Log-Eintrag für Rang-Änderung
             createLogEntry('USER_RANK_UPDATED', adminUsername, 'admin', `Rang geändert zu ${rank}`, user.username, req.ip);
-            
             res.json({ success: true });
         });
     });
