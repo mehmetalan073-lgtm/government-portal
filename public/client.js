@@ -1,8 +1,11 @@
 const API = '/api';
 let currentUser = null;
 let allUsers = [];
+let allRanks = [];
 let selectedUser = null;
+let heartbeatInterval = null;
 
+// --- LOGIN & START ---
 async function login() {
     const u = document.getElementById('login-user').value;
     const p = document.getElementById('login-pass').value;
@@ -21,11 +24,33 @@ async function login() {
             setupDashboard();
             startHeartbeat(); 
         } else if (data.error === 'banned') {
-            startBanTimer(new Date(data.bannedUntil));
+            startBanTimer(data.remainingSeconds);
         } else {
             alert('Fehler: ' + data.error);
         }
     } catch (e) { console.error(e); alert('Verbindungsproblem!'); }
+}
+
+function startBanTimer(seconds) {
+    const timerBox = document.getElementById('ban-timer');
+    const errBox = document.getElementById('login-error');
+    errBox.innerText = "⛔ Account gesperrt!";
+    errBox.style.display = 'block';
+
+    let timeLeft = seconds;
+    const interval = setInterval(() => {
+        timeLeft--;
+        if (timeLeft <= 0) {
+            clearInterval(interval);
+            timerBox.innerText = "Sperre abgelaufen. Bitte erneut anmelden.";
+            timerBox.style.color = "green";
+        } else {
+            const min = Math.floor(timeLeft / 60);
+            const sec = timeLeft % 60;
+            timerBox.innerText = `Wartezeit: ${min}m ${sec}s`;
+            timerBox.style.color = "#e74c3c";
+        }
+    }, 1000);
 }
 
 function setupDashboard() {
@@ -41,9 +66,9 @@ function setupDashboard() {
     switchTab('docs');
 }
 
-// --- ONLINE STATUS & KICK CHECK (Alle 2 Sekunden!) ---
 function startHeartbeat() {
-    setInterval(async () => {
+    if(heartbeatInterval) clearInterval(heartbeatInterval);
+    heartbeatInterval = setInterval(async () => {
         if(!currentUser) return;
         const res = await fetch(`${API}/heartbeat`, {
             method: 'POST',
@@ -51,34 +76,11 @@ function startHeartbeat() {
             body: JSON.stringify({ username: currentUser.username })
         });
         const data = await res.json();
-        
         if (data.kicked) {
-            // Zeige die Nachricht vom Admin an
             alert(`⛔ DU WURDEST GEKICKT!\n\nVon: ${data.by}\nGrund: ${data.reason}`);
             location.reload(); 
         }
-    }, 2000); // 2000ms = 2 Sekunden (sehr schnell)
-}
-
-function startBanTimer(endTime) {
-    const timerBox = document.getElementById('ban-timer');
-    const errBox = document.getElementById('login-error');
-    errBox.innerText = "Dieser Account ist gesperrt.";
-    errBox.style.display = 'block';
-
-    const interval = setInterval(() => {
-        const now = new Date();
-        const diff = endTime - now;
-        if (diff <= 0) {
-            clearInterval(interval);
-            timerBox.innerText = "Sperre abgelaufen. Du kannst dich anmelden.";
-            timerBox.style.color = "green";
-        } else {
-            const min = Math.floor((diff / 1000 / 60) % 60);
-            const sec = Math.floor((diff / 1000) % 60);
-            timerBox.innerText = `Sperre läuft noch: ${min}m ${sec}s`;
-        }
-    }, 1000);
+    }, 2000); 
 }
 
 function switchTab(tab) {
@@ -88,9 +90,106 @@ function switchTab(tab) {
 
     document.querySelectorAll('.tab').forEach(el => el.style.display = 'none');
     document.getElementById(`tab-${tab}`).style.display = 'block';
+    
+    // UI Resets
     if(tab === 'users') loadUsers();
-    if(tab === 'ranks') loadRanks();
+    if(tab === 'ranks') { loadRanks(); cancelRankEdit(); } // Formular resetten
     if(tab === 'docs') loadDocs();
+}
+
+// --- RÄNGE LOGIK (NEU) ---
+async function loadRanks() {
+    const res = await fetch(`${API}/ranks`);
+    allRanks = await res.json();
+    document.getElementById('ranks-list-container').innerHTML = allRanks.map(r => `
+        <div class="card" onclick="editRank('${r.name}')" style="border-left:5px solid ${r.color}; cursor:pointer; transition:0.2s;">
+             <div style="display:flex; justify-content:space-between; align-items:center;">
+                 <strong>${r.name}</strong>
+                 ${r.name === 'admin' ? '🛡️' : '✏️'}
+             </div>
+             <small style="color:#7f8c8d;">${r.permissions.length > 0 ? r.permissions.join(', ') : 'Keine Rechte'}</small>
+        </div>
+    `).join('');
+}
+
+function editRank(name) {
+    const rank = allRanks.find(r => r.name === name);
+    if(!rank) return;
+
+    // Formular füllen
+    document.getElementById('new-rank-name').value = rank.name;
+    document.getElementById('new-rank-name').disabled = true; // Name sperren (ID)
+    document.getElementById('new-rank-color').value = rank.color;
+    
+    // Checkboxen
+    document.getElementById('perm-docs').checked = rank.permissions.includes('access_docs');
+    document.getElementById('perm-users').checked = rank.permissions.includes('manage_users');
+    document.getElementById('perm-kick').checked = rank.permissions.includes('kick_users');
+    document.getElementById('perm-ranks').checked = rank.permissions.includes('manage_ranks');
+
+    // UI Anpassen
+    document.getElementById('rank-form-title').innerText = `Rang bearbeiten: ${rank.name}`;
+    document.getElementById('btn-save-rank').innerText = "Speichern";
+    document.getElementById('btn-cancel-rank').style.display = "block";
+    
+    // Löschen Button nur wenn nicht Admin
+    const delBtn = document.getElementById('btn-delete-rank');
+    if (name !== 'admin') {
+        delBtn.style.display = "block";
+    } else {
+        delBtn.style.display = "none";
+    }
+    
+    // Scroll nach oben zum Formular
+    document.querySelector('.content').scrollTo(0,0);
+}
+
+function cancelRankEdit() {
+    // Formular Reset
+    document.getElementById('new-rank-name').value = '';
+    document.getElementById('new-rank-name').disabled = false;
+    document.getElementById('new-rank-color').value = '#3498db';
+    
+    document.querySelectorAll('#tab-ranks input[type=checkbox]').forEach(cb => cb.checked = false);
+    
+    document.getElementById('rank-form-title').innerText = "Neuen Rang erstellen";
+    document.getElementById('btn-save-rank').innerText = "Erstellen";
+    document.getElementById('btn-delete-rank').style.display = "none";
+    document.getElementById('btn-cancel-rank').style.display = "none";
+}
+
+async function saveRank() {
+    const name = document.getElementById('new-rank-name').value;
+    const color = document.getElementById('new-rank-color').value;
+    const perms = [];
+    if(document.getElementById('perm-docs').checked) perms.push('access_docs');
+    if(document.getElementById('perm-users').checked) perms.push('manage_users');
+    if(document.getElementById('perm-kick').checked) perms.push('kick_users');
+    if(document.getElementById('perm-ranks').checked) perms.push('manage_ranks');
+
+    if(!name) return alert('Name fehlt');
+    
+    await fetch(`${API}/ranks`, { 
+        method: 'POST', 
+        headers: {'Content-Type': 'application/json'}, 
+        body: JSON.stringify({ name, color, permissions: perms }) 
+    });
+    
+    alert('Gespeichert!');
+    cancelRankEdit(); // Reset
+    loadRanks();
+}
+
+async function deleteRankTrigger() {
+    const name = document.getElementById('new-rank-name').value;
+    if(!name) return;
+    
+    if(confirm(`Rang "${name}" wirklich löschen? Alle User mit diesem Rang werden zu 'besucher'.`)) { 
+        await fetch(`${API}/ranks/${name}`, { method: 'DELETE' }); 
+        alert('Rang gelöscht.');
+        cancelRankEdit();
+        loadRanks(); 
+    }
 }
 
 // --- USER & KICK ---
@@ -100,7 +199,7 @@ async function loadUsers() {
     const list = document.getElementById('users-list');
     list.innerHTML = allUsers.map(u => {
         const isOnline = (new Date() - new Date(u.last_seen)) < 60000;
-        return `<div class="card" onclick="openModal('${u.username}')" style="display:flex; justify-content:space-between;">
+        return `<div class="card user-card" onclick="openModal('${u.username}')" style="display:flex; justify-content:space-between;">
             <div><strong>${u.full_name}</strong> <small>(${u.username})</small> <div>${isOnline?'🟢':'⚫'}</div></div>
             <span class="badge" style="background:${u.color||'#ddd'}">${u.rank}</span>
         </div>`;
@@ -112,14 +211,12 @@ async function openModal(username) {
     document.getElementById('user-modal').style.display = 'flex';
     document.getElementById('modal-username').innerText = username;
     
-    // Ranks Dropdown
     const res = await fetch(`${API}/ranks`);
     const ranks = await res.json();
     document.getElementById('modal-rank-select').innerHTML = ranks.map(r => 
         `<option value="${r.name}" ${r.name===selectedUser.rank?'selected':''}>${r.name}</option>`
     ).join('');
 
-    // Kick Rechte prüfen
     if(currentUser.permissions.includes('kick_users')) {
         document.getElementById('kick-section').style.display = 'block';
         document.getElementById('kick-error').style.display = 'none';
@@ -144,42 +241,19 @@ async function kickUser() {
         headers: {'Content-Type': 'application/json'},
         body: JSON.stringify({ 
             username: selectedUser.username, 
-            reason: reason,
-            adminName: currentUser.username, // Wir senden den Namen des Admins mit
-            isBan: isBan,
-            minutes: minutes
+            reason: reason, 
+            adminName: currentUser.username, 
+            isBan: isBan, 
+            minutes: parseInt(minutes) 
         })
     });
-    alert('Aktion ausgeführt!');
-    closeModal();
-    loadUsers();
+    alert('Ausgeführt!'); closeModal(); loadUsers();
 }
 
 async function saveUserRank() {
     const newRank = document.getElementById('modal-rank-select').value;
     await fetch(`${API}/users/rank`, { method: 'POST', headers: {'Content-Type': 'application/json'}, body: JSON.stringify({ username: selectedUser.username, newRank }) });
     alert('Gespeichert'); closeModal(); loadUsers();
-}
-
-// --- RÄNGE ---
-async function loadRanks() {
-    const res = await fetch(`${API}/ranks`);
-    const ranks = await res.json();
-    document.getElementById('ranks-list-container').innerHTML = ranks.map(r => 
-        `<div class="card" style="border-left:5px solid ${r.color}"><strong>${r.name}</strong><br><small>${r.permissions.join(', ')}</small></div>`
-    ).join('');
-}
-async function saveRank() {
-    const name = document.getElementById('new-rank-name').value;
-    const color = document.getElementById('new-rank-color').value;
-    const perms = [];
-    if(document.getElementById('perm-docs').checked) perms.push('access_docs');
-    if(document.getElementById('perm-users').checked) perms.push('manage_users');
-    if(document.getElementById('perm-kick').checked) perms.push('kick_users');
-    if(document.getElementById('perm-ranks').checked) perms.push('manage_ranks');
-    if(!name) return alert('Name fehlt');
-    await fetch(`${API}/ranks`, { method: 'POST', headers: {'Content-Type': 'application/json'}, body: JSON.stringify({ name, color, permissions: perms }) });
-    loadRanks(); alert('Rang gespeichert!');
 }
 
 // --- STANDARDS ---
@@ -200,3 +274,15 @@ async function register() {
     if (res.ok) { alert('Registriert!'); showLogin(); }
 }
 function logout() { location.reload(); }
+function filterUsers() {
+    const term = document.getElementById('user-search').value.toLowerCase();
+    const list = document.getElementById('users-list');
+    const filtered = allUsers.filter(u => u.username.toLowerCase().includes(term) || u.full_name.toLowerCase().includes(term));
+    list.innerHTML = filtered.map(u => {
+        const isOnline = (new Date() - new Date(u.last_seen)) < 60000;
+        return `<div class="card user-card" onclick="openModal('${u.username}')" style="display:flex; justify-content:space-between;">
+            <div><strong>${u.full_name}</strong> <small>(${u.username})</small> <div>${isOnline?'🟢':'⚫'}</div></div>
+            <span class="badge" style="background:${u.color||'#ddd'}">${u.rank}</span>
+        </div>`;
+    }).join('');
+}

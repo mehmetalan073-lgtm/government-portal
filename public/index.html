@@ -42,11 +42,20 @@
             <div class="user-profile-bottom">
                 <div id="profile-name"></div>
                 <div id="profile-rank" class="badge"></div>
-                <button onclick="location.reload()" class="btn-danger" style="margin-top:10px;">Logout</button>
+                <button onclick="logout()" class="btn-danger" style="margin-top:10px;">Logout</button>
             </div>
         </nav>
+
         <main class="content">
-            <div id="tab-docs" class="tab active"><h2>Akten</h2><div class="card"><input id="doc-title" placeholder="Titel"><textarea id="doc-content" placeholder="Inhalt"></textarea><button onclick="createDoc()">Speichern</button></div><div id="docs-list"></div></div>
+            <div id="tab-docs" class="tab active">
+                <h2>Akten</h2>
+                <div class="card">
+                    <input id="doc-title" placeholder="Titel">
+                    <textarea id="doc-content" placeholder="Inhalt"></textarea>
+                    <button onclick="createDoc()">Speichern</button>
+                </div>
+                <div id="docs-list"></div>
+            </div>
             
             <div id="tab-users" class="tab" style="display:none;">
                 <h2>Personal</h2>
@@ -66,44 +75,54 @@
                     
                     <h3 style="color:#c0392b; margin-top:0;">Kicken / Bannen</h3>
                     <div id="kick-section">
-                        <input type="text" id="kick-reason" placeholder="Grund für den Kick (Nachricht)" style="margin-bottom:10px;">
-                        
+                        <input type="text" id="kick-reason" placeholder="Grund" style="margin-bottom:10px;">
                         <div style="display:flex; align-items:center; gap:10px; margin-bottom:10px;">
                             <input type="checkbox" id="kick-ban-check" onchange="toggleBanInput()" style="width:auto;">
-                            <label for="kick-ban-check">Auch sperren?</label>
+                            <label for="kick-ban-check">Sperren?</label>
                         </div>
-
                         <div id="ban-duration-box" style="display:none;">
-                            <input type="number" id="kick-minutes" placeholder="Dauer (Minuten)" value="5">
+                            <input type="number" id="kick-minutes" placeholder="Minuten" value="5">
                         </div>
-
                         <button onclick="kickUser()" class="btn-danger">Ausführen</button>
                     </div>
-                    <p id="kick-error" style="color:red; display:none;">Keine Rechte zum Kicken.</p>
+                    <p id="kick-error" style="color:red; display:none;">Keine Rechte.</p>
 
                     <button onclick="closeModal()" style="background:#95a5a6; margin-top:20px;">Abbrechen</button>
                 </div>
             </div>
 
             <div id="tab-ranks" class="tab" style="display:none;">
-                <h2>Ränge</h2>
+                <h2>Ränge verwalten</h2>
                 <div class="card" style="border-left:4px solid #2980b9;">
-                    <h3>Rang bearbeiten / erstellen</h3>
-                    <input id="new-rank-name" placeholder="Name">
-                    <input type="color" id="new-rank-color" value="#3498db" style="height:40px;">
-                    <div>
-                        <label><input type="checkbox" id="perm-docs"> Akten</label>
-                        <label><input type="checkbox" id="perm-users"> Personal</label>
-                        <label><input type="checkbox" id="perm-kick"> Kick</label>
-                        <label><input type="checkbox" id="perm-ranks"> Ränge</label>
+                    <h3 id="rank-form-title">Neuen Rang erstellen</h3>
+                    
+                    <input id="new-rank-name" placeholder="Name des Rangs">
+                    <div style="display:flex; align-items:center; gap:10px; margin:10px 0;">
+                        Farbe: <input type="color" id="new-rank-color" value="#3498db" style="height:40px; cursor:pointer;">
                     </div>
-                    <button onclick="saveRank()" style="margin-top:10px;">Speichern</button>
+                    
+                    <div style="margin-bottom:15px;">
+                        <strong>Rechte:</strong><br>
+                        <label><input type="checkbox" id="perm-docs"> Akten lesen</label><br>
+                        <label><input type="checkbox" id="perm-users"> Personal verwalten</label><br>
+                        <label><input type="checkbox" id="perm-kick"> Kicken/Bannen</label><br>
+                        <label><input type="checkbox" id="perm-ranks"> Ränge bearbeiten</label>
+                    </div>
+
+                    <div style="display:flex; gap:10px;">
+                        <button onclick="saveRank()" id="btn-save-rank" style="flex:1;">Erstellen</button>
+                        
+                        <button onclick="deleteRankTrigger()" id="btn-delete-rank" class="btn-danger" style="display:none; flex:1;">Löschen</button>
+                        <button onclick="cancelRankEdit()" id="btn-cancel-rank" style="display:none; background:#95a5a6; flex:1;">Abbrechen</button>
+                    </div>
                 </div>
-                <div id="ranks-list-container"></div>
+
+                <h3>Existierende Ränge (Klicken zum Bearbeiten)</h3>
+                <div id="ranks-list-container" class="grid-list"></div>
             </div>
         </main>
     </div>
     
-    <script src="client.js?v=3"></script>
+    <script src="client.js?v=5"></script>
 </body>
 </html>
