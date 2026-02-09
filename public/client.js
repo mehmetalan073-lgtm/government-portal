@@ -1,13 +1,11 @@
 const API = '/api';
 let currentUser = null;
 let allUsers = [];
+let selectedUser = null;
 
-// --- LOGIN & START ---
 async function login() {
     const u = document.getElementById('login-user').value;
     const p = document.getElementById('login-pass').value;
-    
-    // Fehler zurücksetzen
     if(document.getElementById('login-error')) document.getElementById('login-error').style.display = 'none';
 
     try {
@@ -21,46 +19,29 @@ async function login() {
         if (data.success) {
             currentUser = data.user;
             setupDashboard();
-            startHeartbeat(); // Startet den Online-Check
+            startHeartbeat(); 
         } else if (data.error === 'banned') {
             startBanTimer(new Date(data.bannedUntil));
         } else {
             alert('Fehler: ' + data.error);
         }
-    } catch (e) { 
-        console.error(e);
-        alert('Verbindungsfehler! Schau in die Konsole.'); 
-    }
+    } catch (e) { console.error(e); alert('Verbindungsproblem!'); }
 }
 
-// --- DASHBOARD AUFBAU ---
 function setupDashboard() {
     document.getElementById('login-screen').style.display = 'none';
     document.getElementById('dashboard').style.display = 'flex';
-
     document.getElementById('profile-name').innerText = currentUser.fullName;
-    const badge = document.getElementById('profile-rank');
-    badge.innerText = currentUser.rank;
-    // Neue Logik: Farbe kommt direkt vom User, nicht mehr extra abrufen
-    badge.style.backgroundColor = currentUser.color || '#95a5a6';
+    document.getElementById('profile-rank').innerText = currentUser.rank;
+    document.getElementById('profile-rank').style.backgroundColor = currentUser.color || '#95a5a6';
 
     const perms = currentUser.permissions || [];
-    
-    // SCHLÖSSER ENTFERNEN (wenn Recht vorhanden)
-    if (perms.includes('manage_users')) {
-        const btn = document.getElementById('nav-users');
-        if(btn.querySelector('.lock')) btn.querySelector('.lock').style.display = 'none';
-    }
-    if (perms.includes('manage_ranks')) {
-        const btn = document.getElementById('nav-ranks');
-        if(btn.querySelector('.lock')) btn.querySelector('.lock').style.display = 'none';
-    }
-
-    // Standard-Tab öffnen
+    if (perms.includes('manage_users')) document.getElementById('nav-users').querySelector('.lock').style.display = 'none';
+    if (perms.includes('manage_ranks')) document.getElementById('nav-ranks').querySelector('.lock').style.display = 'none';
     switchTab('docs');
 }
 
-// --- ONLINE STATUS & KICK CHECK ---
+// --- ONLINE STATUS & KICK CHECK (Alle 2 Sekunden!) ---
 function startHeartbeat() {
     setInterval(async () => {
         if(!currentUser) return;
@@ -72,110 +53,122 @@ function startHeartbeat() {
         const data = await res.json();
         
         if (data.kicked) {
-            alert('Du wurdest vom Admin gekickt!');
+            // Zeige die Nachricht vom Admin an
+            alert(`⛔ DU WURDEST GEKICKT!\n\nVon: ${data.by}\nGrund: ${data.reason}`);
             location.reload(); 
         }
-    }, 10000); // Alle 10 Sekunden prüfen
+    }, 2000); // 2000ms = 2 Sekunden (sehr schnell)
 }
 
-// --- BANN TIMER (wenn Login fehlschlägt) ---
 function startBanTimer(endTime) {
     const timerBox = document.getElementById('ban-timer');
-    if(!timerBox) return; // Falls Element fehlt
-    
+    const errBox = document.getElementById('login-error');
+    errBox.innerText = "Dieser Account ist gesperrt.";
+    errBox.style.display = 'block';
+
     const interval = setInterval(() => {
         const now = new Date();
         const diff = endTime - now;
         if (diff <= 0) {
             clearInterval(interval);
-            timerBox.innerText = "Sperre vorbei. Bitte neu anmelden.";
+            timerBox.innerText = "Sperre abgelaufen. Du kannst dich anmelden.";
             timerBox.style.color = "green";
         } else {
             const min = Math.floor((diff / 1000 / 60) % 60);
             const sec = Math.floor((diff / 1000) % 60);
-            timerBox.innerText = `Gesperrt für: ${min}m ${sec}s`;
+            timerBox.innerText = `Sperre läuft noch: ${min}m ${sec}s`;
         }
     }, 1000);
 }
 
-// --- TAB NAVIGATION ---
-function switchTab(tabName) {
+function switchTab(tab) {
     const perms = currentUser.permissions || [];
-    
-    // Schutz: Nicht öffnen, wenn keine Rechte
-    if (tabName === 'users' && !perms.includes('manage_users')) return;
-    if (tabName === 'ranks' && !perms.includes('manage_ranks')) return;
+    if (tab === 'users' && !perms.includes('manage_users')) return;
+    if (tab === 'ranks' && !perms.includes('manage_ranks')) return;
 
     document.querySelectorAll('.tab').forEach(el => el.style.display = 'none');
-    document.getElementById(`tab-${tabName}`).style.display = 'block';
-    
-    if(tabName === 'users') loadUsers();
-    if(tabName === 'ranks') loadRanks();
-    if(tabName === 'docs') loadDocs();
+    document.getElementById(`tab-${tab}`).style.display = 'block';
+    if(tab === 'users') loadUsers();
+    if(tab === 'ranks') loadRanks();
+    if(tab === 'docs') loadDocs();
 }
 
-// --- PERSONAL VERWALTUNG (Neu) ---
+// --- USER & KICK ---
 async function loadUsers() {
     const res = await fetch(`${API}/users`);
     allUsers = await res.json();
-    filterUsers();
-}
-
-function filterUsers() {
-    const term = document.getElementById('user-search') ? document.getElementById('user-search').value.toLowerCase() : '';
     const list = document.getElementById('users-list');
-    
-    const filtered = allUsers.filter(u => u.username.toLowerCase().includes(term) || u.full_name.toLowerCase().includes(term));
-
-    list.innerHTML = filtered.map(u => {
-        // Online Check (war User in den letzten 60s aktiv?)
-        const lastSeen = u.last_seen ? new Date(u.last_seen) : new Date(0);
-        const isOnline = (new Date() - lastSeen) < 60000; 
-        
-        return `
-        <div class="card" onclick="openModal('${u.username}')" style="display:flex; justify-content:space-between;">
-            <div>
-                <strong>${u.full_name}</strong> <small>(${u.username})</small>
-                <div>${isOnline ? '🟢 Online' : '⚫ Offline'}</div>
-            </div>
-            <span style="background:${u.color || '#ddd'}; padding:2px 8px; border-radius:4px; color:white; height:fit-content;">${u.rank}</span>
+    list.innerHTML = allUsers.map(u => {
+        const isOnline = (new Date() - new Date(u.last_seen)) < 60000;
+        return `<div class="card" onclick="openModal('${u.username}')" style="display:flex; justify-content:space-between;">
+            <div><strong>${u.full_name}</strong> <small>(${u.username})</small> <div>${isOnline?'🟢':'⚫'}</div></div>
+            <span class="badge" style="background:${u.color||'#ddd'}">${u.rank}</span>
         </div>`;
     }).join('');
 }
 
-function openModal(username) {
+async function openModal(username) {
+    selectedUser = allUsers.find(u => u.username === username);
     document.getElementById('user-modal').style.display = 'flex';
     document.getElementById('modal-username').innerText = username;
+    
+    // Ranks Dropdown
+    const res = await fetch(`${API}/ranks`);
+    const ranks = await res.json();
+    document.getElementById('modal-rank-select').innerHTML = ranks.map(r => 
+        `<option value="${r.name}" ${r.name===selectedUser.rank?'selected':''}>${r.name}</option>`
+    ).join('');
+
+    // Kick Rechte prüfen
+    if(currentUser.permissions.includes('kick_users')) {
+        document.getElementById('kick-section').style.display = 'block';
+        document.getElementById('kick-error').style.display = 'none';
+    } else {
+        document.getElementById('kick-section').style.display = 'none';
+        document.getElementById('kick-error').style.display = 'block';
+    }
 }
 
-function closeModal() { document.getElementById('user-modal').style.display = 'none'; }
+function toggleBanInput() {
+    const isChecked = document.getElementById('kick-ban-check').checked;
+    document.getElementById('ban-duration-box').style.display = isChecked ? 'block' : 'none';
+}
 
 async function kickUser() {
-    const username = document.getElementById('modal-username').innerText;
+    const reason = document.getElementById('kick-reason').value || "Kein Grund";
+    const isBan = document.getElementById('kick-ban-check').checked;
     const minutes = document.getElementById('kick-minutes').value;
     
     await fetch(`${API}/users/kick`, {
         method: 'POST',
         headers: {'Content-Type': 'application/json'},
-        body: JSON.stringify({ username, minutes })
+        body: JSON.stringify({ 
+            username: selectedUser.username, 
+            reason: reason,
+            adminName: currentUser.username, // Wir senden den Namen des Admins mit
+            isBan: isBan,
+            minutes: minutes
+        })
     });
-    alert('User gekickt!');
+    alert('Aktion ausgeführt!');
     closeModal();
     loadUsers();
 }
 
-// --- RÄNGE (Neu: /api/ranks statt rank-colors) ---
+async function saveUserRank() {
+    const newRank = document.getElementById('modal-rank-select').value;
+    await fetch(`${API}/users/rank`, { method: 'POST', headers: {'Content-Type': 'application/json'}, body: JSON.stringify({ username: selectedUser.username, newRank }) });
+    alert('Gespeichert'); closeModal(); loadUsers();
+}
+
+// --- RÄNGE ---
 async function loadRanks() {
     const res = await fetch(`${API}/ranks`);
     const ranks = await res.json();
-    document.getElementById('ranks-list-container').innerHTML = ranks.map(r => `
-        <div class="card" style="border-left: 5px solid ${r.color}">
-             <strong>${r.name}</strong><br><small>${r.permissions.join(', ')}</small>
-             ${r.name !== 'admin' ? `<button onclick="deleteRank('${r.name}')" style="float:right; background:#c0392b; color:white; border:none; padding:5px;">Löschen</button>` : ''}
-        </div>
-    `).join('');
+    document.getElementById('ranks-list-container').innerHTML = ranks.map(r => 
+        `<div class="card" style="border-left:5px solid ${r.color}"><strong>${r.name}</strong><br><small>${r.permissions.join(', ')}</small></div>`
+    ).join('');
 }
-
 async function saveRank() {
     const name = document.getElementById('new-rank-name').value;
     const color = document.getElementById('new-rank-color').value;
@@ -184,39 +177,21 @@ async function saveRank() {
     if(document.getElementById('perm-users').checked) perms.push('manage_users');
     if(document.getElementById('perm-kick').checked) perms.push('kick_users');
     if(document.getElementById('perm-ranks').checked) perms.push('manage_ranks');
-
-    if(!name) return alert('Name fehlt!');
-    await fetch(`${API}/ranks`, { 
-        method: 'POST', 
-        headers: {'Content-Type': 'application/json'}, 
-        body: JSON.stringify({ name, color, permissions: perms }) 
-    });
-    alert('Gespeichert!');
-    loadRanks();
+    if(!name) return alert('Name fehlt');
+    await fetch(`${API}/ranks`, { method: 'POST', headers: {'Content-Type': 'application/json'}, body: JSON.stringify({ name, color, permissions: perms }) });
+    loadRanks(); alert('Rang gespeichert!');
 }
 
-async function deleteRank(name) {
-    if(confirm('Wirklich löschen?')) { 
-        await fetch(`${API}/ranks/${name}`, { method: 'DELETE' }); 
-        loadRanks(); 
-    }
-}
-
-// --- STANDARDS (Akten, Register) ---
+// --- STANDARDS ---
 async function loadDocs() {
-    const res = await fetch(`${API}/documents`);
-    const docs = await res.json();
-    const list = document.getElementById('docs-list');
-    if(list) list.innerHTML = docs.map(d => `<div class="card"><h3>${d.title}</h3><p>${d.content}</p><small>Von: ${d.created_by}</small></div>`).join('');
+    const res = await fetch(`${API}/documents`); const docs = await res.json();
+    document.getElementById('docs-list').innerHTML = docs.map(d => `<div class="card"><h3>${d.title}</h3><p>${d.content}</p><small>${d.created_by}</small></div>`).join('');
 }
-
 async function createDoc() {
-    const title = document.getElementById('doc-title').value;
-    const content = document.getElementById('doc-content').value;
-    await fetch(`${API}/documents`, { method: 'POST', headers: {'Content-Type': 'application/json'}, body: JSON.stringify({ title, content, createdBy: currentUser.username }) });
-    loadDocs();
+    const title = document.getElementById('doc-title').value; const content = document.getElementById('doc-content').value;
+    await fetch(`${API}/documents`, { method: 'POST', headers: {'Content-Type': 'application/json'}, body: JSON.stringify({ title, content, createdBy: currentUser.username }) }); loadDocs();
 }
-
+function closeModal() { document.getElementById('user-modal').style.display = 'none'; }
 function showRegister() { document.getElementById('login-screen').style.display = 'none'; document.getElementById('register-screen').style.display = 'flex'; }
 function showLogin() { document.getElementById('register-screen').style.display = 'none'; document.getElementById('login-screen').style.display = 'flex'; }
 async function register() {

@@ -2,7 +2,6 @@
 <html lang="de">
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Regierungspanel</title>
     <link rel="stylesheet" href="style.css">
 </head>
@@ -16,7 +15,7 @@
             <button onclick="login()">Anmelden</button>
             <p onclick="showRegister()" style="cursor:pointer; margin-top:10px;">Konto erstellen</p>
             <div id="login-error" style="color:red; margin-top:10px; display:none;"></div>
-            <div id="ban-timer" style="color:#e74c3c; font-weight:bold; font-size:1.2em; margin-top:10px;"></div>
+            <div id="ban-timer" style="color:#e74c3c; font-weight:bold; margin-top:10px;"></div>
         </div>
     </div>
 
@@ -33,93 +32,78 @@
 
     <div id="dashboard" class="screen" style="display:none;">
         <nav class="sidebar">
-            <h2>Regierung</h2>
+            <h2>Panel</h2>
             <div class="nav-links">
                 <button id="nav-docs" onclick="switchTab('docs')" class="active">📄 Akten</button>
-                
-                <h3 style="margin: 20px 0 10px 0; color: #bdc3c7; font-size: 0.9em; text-transform: uppercase;">Admin</h3>
-                
-                <button id="nav-users" onclick="switchTab('users')">
-                    👥 Personal <span class="lock-icon">🔒</span>
-                </button>
-                <button id="nav-ranks" onclick="switchTab('ranks')">
-                    ⚙️ Ränge & Rechte <span class="lock-icon">🔒</span>
-                </button>
+                <h3 style="margin:20px 0 10px 0; color:#bdc3c7; font-size:0.9em;">Admin</h3>
+                <button id="nav-users" onclick="switchTab('users')">👥 Personal <span class="lock">🔒</span></button>
+                <button id="nav-ranks" onclick="switchTab('ranks')">⚙️ Ränge <span class="lock">🔒</span></button>
             </div>
-
             <div class="user-profile-bottom">
-                <div id="profile-name" class="user-name-display">...</div>
-                <div id="profile-rank" class="user-rank-badge">Gast</div>
-                <button onclick="logout()" style="margin-top:10px; background:#c0392b; font-size:0.8em;">Logout</button>
+                <div id="profile-name"></div>
+                <div id="profile-rank" class="badge"></div>
+                <button onclick="location.reload()" class="btn-danger" style="margin-top:10px;">Logout</button>
             </div>
         </nav>
-
         <main class="content">
-            <div id="tab-docs" class="tab active">
-                <h2>Aktenverwaltung</h2>
-                <div class="card">
-                    <h3>Neue Akte</h3>
-                    <input type="text" id="doc-title" placeholder="Titel">
-                    <textarea id="doc-content" placeholder="Inhalt..."></textarea>
-                    <button onclick="createDoc()">Speichern</button>
-                </div>
-                <div id="docs-list">Lade Akten...</div>
-            </div>
-
+            <div id="tab-docs" class="tab active"><h2>Akten</h2><div class="card"><input id="doc-title" placeholder="Titel"><textarea id="doc-content" placeholder="Inhalt"></textarea><button onclick="createDoc()">Speichern</button></div><div id="docs-list"></div></div>
+            
             <div id="tab-users" class="tab" style="display:none;">
-                <h2>Personalverwaltung</h2>
-                
-                <div class="card">
-                    <input type="text" id="user-search" placeholder="🔍 Personal suchen..." onkeyup="filterUsers()" style="padding:12px; font-size:1.1em;">
-                </div>
-
-                <div id="users-list" class="grid-list">Lade Personal...</div>
+                <h2>Personal</h2>
+                <input type="text" id="user-search" placeholder="Suche..." onkeyup="filterUsers()" style="padding:10px; width:100%;">
+                <div id="users-list" class="grid-list" style="margin-top:20px;"></div>
             </div>
 
             <div id="user-modal" class="modal" style="display:none;">
                 <div class="modal-content">
-                    <h2 id="modal-username">User bearbeiten</h2>
+                    <h2 id="modal-username" style="margin-top:0;">User bearbeiten</h2>
                     
-                    <h3>Rang zuweisen:</h3>
-                    <select id="modal-rank-select" style="width:100%; padding:10px; margin-bottom:20px;"></select>
+                    <label>Rang zuweisen:</label>
+                    <select id="modal-rank-select" style="width:100%; padding:8px; margin-bottom:15px;"></select>
                     <button onclick="saveUserRank()">Rang Speichern</button>
 
-                    <hr style="margin:20px 0;">
+                    <hr style="margin:20px 0; border:0; border-top:1px solid #eee;">
                     
-                    <h3 style="color:#c0392b;">Benutzer Kicken / Bannen:</h3>
+                    <h3 style="color:#c0392b; margin-top:0;">Kicken / Bannen</h3>
                     <div id="kick-section">
-                        <input type="number" id="kick-minutes" placeholder="Dauer in Minuten" value="5">
-                        <button onclick="kickUser()" class="btn-danger">KICKEN & SPERREN</button>
-                    </div>
-                    <p id="kick-error" style="color:red; display:none;">Keine Berechtigung zum Kicken!</p>
+                        <input type="text" id="kick-reason" placeholder="Grund für den Kick (Nachricht)" style="margin-bottom:10px;">
+                        
+                        <div style="display:flex; align-items:center; gap:10px; margin-bottom:10px;">
+                            <input type="checkbox" id="kick-ban-check" onchange="toggleBanInput()" style="width:auto;">
+                            <label for="kick-ban-check">Auch sperren?</label>
+                        </div>
 
-                    <button onclick="closeModal()" style="background:#7f8c8d; margin-top:20px;">Schließen</button>
+                        <div id="ban-duration-box" style="display:none;">
+                            <input type="number" id="kick-minutes" placeholder="Dauer (Minuten)" value="5">
+                        </div>
+
+                        <button onclick="kickUser()" class="btn-danger">Ausführen</button>
+                    </div>
+                    <p id="kick-error" style="color:red; display:none;">Keine Rechte zum Kicken.</p>
+
+                    <button onclick="closeModal()" style="background:#95a5a6; margin-top:20px;">Abbrechen</button>
                 </div>
             </div>
 
             <div id="tab-ranks" class="tab" style="display:none;">
-                <h2>Ränge & Rechte</h2>
-                <div class="card" style="background: #eef2f3; border-left: 4px solid #2980b9;">
-                    <h3>Rang erstellen / Bearbeiten</h3>
-                    <input type="text" id="new-rank-name" placeholder="Name (z.B. Polizei)">
-                    <div style="display:flex; align-items:center; gap:10px; margin:10px 0;">
-                        Farbe: <input type="color" id="new-rank-color" value="#3498db" style="height:30px;">
+                <h2>Ränge</h2>
+                <div class="card" style="border-left:4px solid #2980b9;">
+                    <h3>Rang bearbeiten / erstellen</h3>
+                    <input id="new-rank-name" placeholder="Name">
+                    <input type="color" id="new-rank-color" value="#3498db" style="height:40px;">
+                    <div>
+                        <label><input type="checkbox" id="perm-docs"> Akten</label>
+                        <label><input type="checkbox" id="perm-users"> Personal</label>
+                        <label><input type="checkbox" id="perm-kick"> Kick</label>
+                        <label><input type="checkbox" id="perm-ranks"> Ränge</label>
                     </div>
-                    
-                    <h4>Berechtigungen:</h4>
-                    <div class="perm-options">
-                        <label><input type="checkbox" id="perm-docs"> Akten lesen</label><br>
-                        <label><input type="checkbox" id="perm-users"> Personal verwalten</label><br>
-                        <label><input type="checkbox" id="perm-kick"> User kicken</label><br>
-                        <label><input type="checkbox" id="perm-ranks"> Ränge verwalten</label>
-                    </div>
-                    <button onclick="saveRank()">Speichern</button>
+                    <button onclick="saveRank()" style="margin-top:10px;">Speichern</button>
                 </div>
-                <div id="ranks-list-container">Lade...</div>
+                <div id="ranks-list-container"></div>
             </div>
         </main>
     </div>
-
-    <script src="client.js?v=2"></script>
+    
+    <script src="client.js?v=3"></script>
 </body>
 </html>
