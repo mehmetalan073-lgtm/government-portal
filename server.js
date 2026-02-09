@@ -1,7 +1,7 @@
 // server.js v23 - FIXES: Dokument-Löschung + Fragebogen als Dokumente
 const express = require('express');
 const { Pool } = require('pg');
-const bcrypt = require('bcrypt');
+const bcrypt = require('bcryptjs');
 const path = require('path');
 const cors = require('cors');
 const multer = require('multer');
