@@ -31,7 +31,6 @@ async function initDB() {
             );
         `);
 
-        // NEU: Tabelle für Rang-Farben
         await client.query(`
             CREATE TABLE IF NOT EXISTS rank_colors (
                 rank_name TEXT PRIMARY KEY,
@@ -39,12 +38,11 @@ async function initDB() {
             );
         `);
 
-        // Standard-Farben setzen (falls noch keine da sind)
         const defaultColors = [
-            ['admin', '#e74c3c'],      // Rot
-            ['nc-team', '#e67e22'],    // Orange
-            ['user', '#3498db'],       // Blau
-            ['besucher', '#95a5a6']    // Grau
+            ['admin', '#e74c3c'],
+            ['nc-team', '#e67e22'],
+            ['user', '#3498db'],
+            ['besucher', '#95a5a6']
         ];
 
         for (const [rank, color] of defaultColors) {
@@ -55,15 +53,16 @@ async function initDB() {
             `, [rank, color]);
         }
 
-        // Admin User
+        // HIER IST DER FIX: Admin-Passwort wird ERZWUNGEN (DO UPDATE)
         const hash = await bcrypt.hash('memo', 10);
         await client.query(`
             INSERT INTO users (username, password_hash, full_name, rank)
             VALUES ($1, $2, $3, 'admin')
-            ON CONFLICT (username) DO NOTHING
+            ON CONFLICT (username) 
+            DO UPDATE SET password_hash = $2
         `, ['admin', hash, 'System Administrator']);
         
-        console.log('✅ Datenbank bereit.');
+        console.log('✅ Datenbank bereit & Admin-Passwort auf "memo" gesetzt.');
     } catch (err) {
         console.error('❌ Datenbank-Fehler:', err);
     } finally {
