@@ -31,29 +31,34 @@ async function initDB() {
             );
         `);
 
+        // NEU: Ranks Tabelle mit Berechtigungen (Permissions)
+        // permissions speichert eine Liste als Text, z.B. '["docs_read", "users_manage"]'
         await client.query(`
-            CREATE TABLE IF NOT EXISTS rank_colors (
-                rank_name TEXT PRIMARY KEY,
-                color_hex TEXT NOT NULL
+            CREATE TABLE IF NOT EXISTS ranks (
+                name TEXT PRIMARY KEY,
+                color TEXT NOT NULL,
+                permissions TEXT DEFAULT '[]'
             );
         `);
 
-        const defaultColors = [
-            ['admin', '#e74c3c'],
-            ['nc-team', '#e67e22'],
-            ['user', '#3498db'],
-            ['besucher', '#95a5a6']
+        // Standard-Ränge mit Rechten definieren
+        // Rechte-Keys: 'access_docs', 'manage_users', 'manage_ranks'
+        const defaultRanks = [
+            ['admin', '#e74c3c', JSON.stringify(['access_docs', 'manage_users', 'manage_ranks'])],
+            ['nc-team', '#e67e22', JSON.stringify(['access_docs', 'manage_users'])],
+            ['user', '#3498db', JSON.stringify(['access_docs'])],
+            ['besucher', '#95a5a6', JSON.stringify([])]
         ];
 
-        for (const [rank, color] of defaultColors) {
+        for (const [name, color, perms] of defaultRanks) {
             await client.query(`
-                INSERT INTO rank_colors (rank_name, color_hex) 
-                VALUES ($1, $2) 
-                ON CONFLICT (rank_name) DO NOTHING
-            `, [rank, color]);
+                INSERT INTO ranks (name, color, permissions) 
+                VALUES ($1, $2, $3) 
+                ON CONFLICT (name) DO NOTHING
+            `, [name, color, perms]);
         }
 
-        // HIER IST DER FIX: Admin-Passwort wird ERZWUNGEN (DO UPDATE)
+        // Admin User sicherstellen (Passwort: memo)
         const hash = await bcrypt.hash('memo', 10);
         await client.query(`
             INSERT INTO users (username, password_hash, full_name, rank)
@@ -62,7 +67,7 @@ async function initDB() {
             DO UPDATE SET password_hash = $2
         `, ['admin', hash, 'System Administrator']);
         
-        console.log('✅ Datenbank bereit & Admin-Passwort auf "memo" gesetzt.');
+        console.log('✅ Datenbank bereit.');
     } catch (err) {
         console.error('❌ Datenbank-Fehler:', err);
     } finally {
