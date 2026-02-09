@@ -1,23 +1,66 @@
 body { margin: 0; font-family: 'Segoe UI', sans-serif; background: #f4f4f9; color: #333; }
 .screen { width: 100vw; height: 100vh; display: flex; }
 
-/* Login Box */
+/* Login Box Styles (bleiben gleich) */
 #login-screen, #register-screen { justify-content: center; align-items: center; background: #2c3e50; }
 .login-box { background: white; padding: 40px; border-radius: 8px; text-align: center; width: 300px; }
 input, textarea { width: 100%; padding: 10px; margin: 10px 0; border: 1px solid #ddd; box-sizing: border-box; }
-button { width: 100%; padding: 10px; background: #2c3e50; color: white; border: none; cursor: pointer; }
+button { width: 100%; padding: 10px; background: #2c3e50; color: white; border: none; cursor: pointer; border-radius: 5px; }
 button:hover { background: #34495e; }
-.btn-secondary { background: #95a5a6; }
-.btn-danger { background: #e74c3c; margin-top: auto; }
 
-/* Dashboard Layout */
-.sidebar { width: 250px; background: #2c3e50; color: white; display: flex; flex-direction: column; padding: 20px; }
-.sidebar button { margin-top: 10px; text-align: left; background: transparent; }
-.sidebar button:hover { background: rgba(255,255,255,0.1); }
+/* NEUES SIDEBAR LAYOUT */
+.sidebar { 
+    width: 260px; 
+    background: #1e272e; 
+    color: white; 
+    display: flex; 
+    flex-direction: column; 
+    padding: 20px; 
+    box-shadow: 2px 0 5px rgba(0,0,0,0.1);
+}
+
+.sidebar h2 { margin-top: 0; color: #ecf0f1; border-bottom: 1px solid #34495e; padding-bottom: 15px; }
+
+/* Navigation oben */
+.nav-links { flex: 1; } 
+.nav-links button { 
+    text-align: left; 
+    background: transparent; 
+    color: #bdc3c7; 
+    margin-bottom: 5px; 
+    padding: 12px;
+}
+.nav-links button:hover { background: rgba(255,255,255,0.05); color: white; }
+.nav-links button.active { background: rgba(255,255,255,0.1); color: white; border-left: 4px solid #3498db; }
+
+/* User Profil UNTEN LINKS */
+.user-profile-bottom {
+    margin-top: auto; /* Drückt es nach ganz unten */
+    background: rgba(0,0,0,0.2);
+    padding: 15px;
+    border-radius: 8px;
+    display: flex;
+    flex-direction: column;
+    gap: 5px;
+}
+
+.user-name-display { font-weight: bold; font-size: 1.1em; }
+.user-rank-badge { 
+    display: inline-block; 
+    padding: 4px 10px; 
+    border-radius: 12px; 
+    font-size: 0.8em; 
+    font-weight: bold; 
+    text-transform: uppercase;
+    color: white;
+    width: fit-content;
+    background: #95a5a6; /* Fallback Farbe */
+}
+
+/* Content Area */
 .content { flex: 1; padding: 40px; overflow-y: auto; }
+.card { background: white; padding: 25px; border-radius: 10px; box-shadow: 0 4px 10px rgba(0,0,0,0.05); margin-bottom: 20px; }
 
-/* Cards & Lists */
-.card { background: white; padding: 20px; border-radius: 8px; box-shadow: 0 2px 5px rgba(0,0,0,0.1); margin-bottom: 20px; }
-.list-item { background: white; padding: 15px; border-bottom: 1px solid #eee; display: flex; justify-content: space-between; }
-.tab { display: none; }
-.tab.active { display: block; }
+/* Color Picker Settings */
+.color-setting-item { display: flex; justify-content: space-between; align-items: center; padding: 10px; border-bottom: 1px solid #eee; }
+.color-input { width: 50px; height: 30px; border: none; cursor: pointer; }

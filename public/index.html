@@ -10,49 +10,64 @@
 
     <div id="login-screen" class="screen active">
         <div class="login-box">
-            <h1>🏛️ Regierungspanel</h1>
+            <h1>🏛️ Panel Login</h1>
             <input type="text" id="login-user" placeholder="Benutzername">
             <input type="password" id="login-pass" placeholder="Passwort">
             <button onclick="login()">Anmelden</button>
-            <p onclick="showRegister()" style="cursor:pointer; margin-top:10px; font-size: 0.8em;">Konto beantragen</p>
+            <p onclick="showRegister()" style="cursor:pointer; margin-top:10px; color:#7f8c8d;">Konto beantragen</p>
         </div>
     </div>
 
     <div id="register-screen" class="screen" style="display:none;">
         <div class="login-box">
             <h1>📝 Registrierung</h1>
-            <input type="text" id="reg-user" placeholder="Gewünschter Username">
-            <input type="text" id="reg-name" placeholder="Vollständiger Name">
+            <input type="text" id="reg-user" placeholder="Username">
+            <input type="text" id="reg-name" placeholder="Voller Name">
             <input type="password" id="reg-pass" placeholder="Passwort">
             <button onclick="register()">Absenden</button>
-            <button onclick="showLogin()" class="btn-secondary">Zurück</button>
+            <button onclick="showLogin()" style="background:#7f8c8d; margin-top:10px;">Zurück</button>
         </div>
     </div>
 
     <div id="dashboard" class="screen" style="display:none;">
         <nav class="sidebar">
-            <h2>Panel</h2>
-            <div id="user-display">Gast</div>
-            <button onclick="switchTab('docs')">📄 Akten</button>
-            <button onclick="switchTab('users')" id="admin-btn" style="display:none;">👥 Personal</button>
-            <button onclick="logout()" class="btn-danger">Logout</button>
+            <h2>Regierung</h2>
+            
+            <div class="nav-links">
+                <button onclick="switchTab('docs')" class="active">📄 Akten</button>
+                <button onclick="switchTab('users')" id="admin-btn" style="display:none;">👥 Personal</button>
+                <button onclick="switchTab('colors')" id="colors-btn" style="display:none;">🎨 Rang-Farben</button>
+            </div>
+
+            <div class="user-profile-bottom">
+                <div id="profile-name" class="user-name-display">Lade...</div>
+                <div id="profile-rank" class="user-rank-badge">Gast</div>
+                <button onclick="logout()" style="margin-top:10px; background:#c0392b; font-size:0.8em;">Logout</button>
+            </div>
         </nav>
 
         <main class="content">
             <div id="tab-docs" class="tab active">
                 <h2>Aktenverwaltung</h2>
                 <div class="card">
-                    <h3>Neue Akte anlegen</h3>
-                    <input type="text" id="doc-title" placeholder="Titel der Akte">
+                    <h3>Neue Akte</h3>
+                    <input type="text" id="doc-title" placeholder="Titel">
                     <textarea id="doc-content" placeholder="Inhalt..."></textarea>
                     <button onclick="createDoc()">Speichern</button>
                 </div>
-                <div id="docs-list" class="list-container">Lade Akten...</div>
+                <div id="docs-list">Lade Akten...</div>
             </div>
 
             <div id="tab-users" class="tab" style="display:none;">
                 <h2>Personalverwaltung</h2>
-                <div id="users-list" class="list-container">Lade Personal...</div>
+                <div id="users-list">Lade Personal...</div>
+            </div>
+
+            <div id="tab-colors" class="tab" style="display:none;">
+                <h2>Rang-Farben anpassen</h2>
+                <div class="card">
+                    <div id="color-settings-list">Lade Farben...</div>
+                </div>
             </div>
         </main>
     </div>
