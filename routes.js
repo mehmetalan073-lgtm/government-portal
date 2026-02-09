@@ -8,7 +8,7 @@ const { pool } = require('./database');
 router.post('/login', async (req, res) => {
     const { username, password } = req.body;
     try {
-        // Wir holen den User UND seine Rang-Rechte in einem Abwasch
+        // Wir holen den User UND seine Rang-Rechte
         const result = await pool.query(`
             SELECT u.*, r.permissions, r.color 
             FROM users u 
@@ -25,6 +25,7 @@ router.post('/login', async (req, res) => {
                     username: user.username, 
                     rank: user.rank, 
                     fullName: user.full_name,
+                    // Hier werden die Rechte gesendet:
                     permissions: user.permissions ? JSON.parse(user.permissions) : [],
                     color: user.color
                 } 
@@ -67,7 +68,13 @@ router.get('/documents', async (req, res) => {
 
 router.get('/users', async (req, res) => {
     try {
-        const result = await pool.query('SELECT id, username, full_name, rank FROM users ORDER BY id DESC');
+        // Hole auch die Farben der Ränge dazu
+        const result = await pool.query(`
+            SELECT u.id, u.username, u.full_name, u.rank, r.color 
+            FROM users u
+            LEFT JOIN ranks r ON u.rank = r.name
+            ORDER BY u.id DESC
+        `);
         res.json(result.rows);
     } catch (err) { res.status(500).json({ error: err.message }); }
 });
@@ -80,12 +87,11 @@ router.post('/users/rank', async (req, res) => {
     } catch (err) { res.status(500).json({ error: err.message }); }
 });
 
-// --- RÄNGE & RECHTE MANAGEMENT ---
+// --- NEUE RÄNGE API (Ersetzt rank-colors) ---
 
 router.get('/ranks', async (req, res) => {
     try {
         const result = await pool.query('SELECT * FROM ranks ORDER BY name ASC');
-        // Permissions String zu JSON parsen für das Frontend
         const ranks = result.rows.map(r => ({
             ...r,
             permissions: JSON.parse(r.permissions || '[]')
@@ -95,7 +101,7 @@ router.get('/ranks', async (req, res) => {
 });
 
 router.post('/ranks', async (req, res) => {
-    const { name, color, permissions } = req.body; // permissions ist ein Array ['access_docs', ...]
+    const { name, color, permissions } = req.body;
     try {
         await pool.query(`
             INSERT INTO ranks (name, color, permissions) 
@@ -113,7 +119,6 @@ router.delete('/ranks/:name', async (req, res) => {
     if(name === 'admin') return res.status(403).json({ error: 'Admin Rang kann nicht gelöscht werden' });
     try {
         await pool.query('DELETE FROM ranks WHERE name = $1', [name]);
-        // User mit diesem Rang auf 'besucher' zurücksetzen
         await pool.query("UPDATE users SET rank = 'besucher' WHERE rank = $1", [name]);
         res.json({ success: true });
     } catch (err) { res.status(500).json({ error: err.message }); }

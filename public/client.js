@@ -2,8 +2,6 @@ const API = '/api';
 let currentUser = null;
 let allRanks = [];
 
-// --- LOGIN & START ---
-
 async function login() {
     const u = document.getElementById('login-user').value;
     const p = document.getElementById('login-pass').value;
@@ -32,16 +30,18 @@ function setupDashboard() {
     document.getElementById('profile-name').innerText = currentUser.fullName;
     const badge = document.getElementById('profile-rank');
     badge.innerText = currentUser.rank;
-    // Neue Logik: Farbe kommt direkt vom User-Objekt oder Default
     badge.style.backgroundColor = currentUser.color || '#95a5a6';
 
     const perms = currentUser.permissions || [];
-    console.log("Rechte:", perms); // Debug
+    console.log("Deine Rechte:", perms); 
 
+    // TAB SICHTBARKEIT STEUERN
     if (perms.includes('access_docs')) {
         document.getElementById('nav-docs').style.display = 'block';
         loadDocs();
-    } else { document.getElementById('nav-docs').style.display = 'none'; }
+    } else { 
+        document.getElementById('nav-docs').style.display = 'none'; 
+    }
 
     if (perms.includes('manage_users')) {
         document.getElementById('nav-users').style.display = 'block';
@@ -61,10 +61,9 @@ function switchTab(tabName) {
     if(tabName === 'docs') loadDocs();
 }
 
-// --- NEU: RANG MANAGEMENT (statt rank-colors) ---
+// --- RANG MANAGEMENT ---
 
 async function loadRanksManagement() {
-    // Hier wird die NEUE Route aufgerufen
     const res = await fetch(`${API}/ranks`);
     allRanks = await res.json();
     

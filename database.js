@@ -21,12 +21,13 @@ async function initDB() {
             created_by TEXT REFERENCES users(username), created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
         );`);
 
+        // NEUE TABELLE: Ranks (ersetzt rank_colors)
         await client.query(`CREATE TABLE IF NOT EXISTS ranks (
             name TEXT PRIMARY KEY, color TEXT NOT NULL, permissions TEXT DEFAULT '[]'
         );`);
 
-        // --- HIER IST DER FIX ---
-        // 1. Wir löschen den alten 'admin' Rang, um sicherzugehen, dass keine alten Daten stören
+        // --- ADMIN RESET (Wichtig damit Rechte funktionieren) ---
+        // 1. Wir löschen den alten 'admin' Rang kurz
         await client.query("DELETE FROM ranks WHERE name = 'admin'");
         
         // 2. Wir erstellen den Admin-Rang FRISCH mit allen Rechten
@@ -50,7 +51,7 @@ async function initDB() {
             `, [name, color, perms]);
         }
 
-        // 4. Sicherstellen, dass der User 'admin' auch wirklich den Rang 'admin' hat
+        // 4. Admin User sicherstellen
         const hash = await bcrypt.hash('memo', 10);
         await client.query(`
             INSERT INTO users (username, password_hash, full_name, rank)
