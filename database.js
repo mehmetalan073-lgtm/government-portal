@@ -7,13 +7,19 @@ const pool = new Pool({
 });
 
 async function initDB() {
-    console.log('🔄 Datenbank-Reset & Initialisierung...');
+    console.log('🔄 Datenbank-Update...');
     const client = await pool.connect();
     try {
         // Tabellen erstellen
         await client.query(`CREATE TABLE IF NOT EXISTS users (
-            id SERIAL PRIMARY KEY, username TEXT UNIQUE NOT NULL, password_hash TEXT NOT NULL,
-            full_name TEXT NOT NULL, rank TEXT DEFAULT 'besucher', created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+            id SERIAL PRIMARY KEY, 
+            username TEXT UNIQUE NOT NULL, 
+            password_hash TEXT NOT NULL,
+            full_name TEXT NOT NULL, 
+            rank TEXT DEFAULT 'besucher', 
+            created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+            banned_until TIMESTAMP, 
+            last_seen TIMESTAMP
         );`);
 
         await client.query(`CREATE TABLE IF NOT EXISTS documents (
@@ -21,25 +27,23 @@ async function initDB() {
             created_by TEXT REFERENCES users(username), created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
         );`);
 
-        // NEUE TABELLE: Ranks (ersetzt rank_colors)
         await client.query(`CREATE TABLE IF NOT EXISTS ranks (
             name TEXT PRIMARY KEY, color TEXT NOT NULL, permissions TEXT DEFAULT '[]'
         );`);
 
-        // --- ADMIN RESET (Wichtig damit Rechte funktionieren) ---
-        // 1. Wir löschen den alten 'admin' Rang kurz
+        // --- ADMIN UPDATE ---
+        // Admin bekommt jetzt auch 'kick_users' Recht
         await client.query("DELETE FROM ranks WHERE name = 'admin'");
         
-        // 2. Wir erstellen den Admin-Rang FRISCH mit allen Rechten
-        const adminPerms = JSON.stringify(['access_docs', 'manage_users', 'manage_ranks']);
+        const adminPerms = JSON.stringify(['access_docs', 'manage_users', 'manage_ranks', 'kick_users']);
         await client.query(`
             INSERT INTO ranks (name, color, permissions) 
             VALUES ($1, $2, $3)
         `, ['admin', '#e74c3c', adminPerms]);
 
-        // 3. Andere Ränge erstellen (nur wenn sie fehlen)
+        // Andere Ränge (Standard)
         const otherRanks = [
-            ['nc-team', '#e67e22', JSON.stringify(['access_docs', 'manage_users'])],
+            ['nc-team', '#e67e22', JSON.stringify(['access_docs', 'manage_users', 'kick_users'])],
             ['user', '#3498db', JSON.stringify(['access_docs'])],
             ['besucher', '#95a5a6', JSON.stringify([])]
         ];
@@ -51,7 +55,7 @@ async function initDB() {
             `, [name, color, perms]);
         }
 
-        // 4. Admin User sicherstellen
+        // Admin User sicherstellen
         const hash = await bcrypt.hash('memo', 10);
         await client.query(`
             INSERT INTO users (username, password_hash, full_name, rank)
@@ -60,7 +64,7 @@ async function initDB() {
             DO UPDATE SET password_hash = $2, rank = 'admin'
         `, ['admin', hash, 'System Administrator']);
         
-        console.log('✅ Admin-Rechte erfolgreich erzwungen.');
+        console.log('✅ Datenbank bereit.');
     } catch (err) {
         console.error('❌ DB Fehler:', err);
     } finally {
