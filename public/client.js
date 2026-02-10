@@ -35,7 +35,7 @@ function setupDashboard() {
     document.getElementById('login-screen').style.display='none';
     document.getElementById('dashboard').style.display='flex';
     document.getElementById('profile-name').innerText = currentUser.fullName;
-    document.getElementById('profile-rank').innerText = `${currentUser.rank}`;
+    document.getElementById('profile-rank').innerText = `${currentUser.rank} (Lvl ${currentUser.level})`;
     document.getElementById('profile-rank').style.backgroundColor = currentUser.color || '#999';
     const p = currentUser.permissions || [];
     if(p.includes('manage_users')) document.getElementById('nav-users').querySelector('.lock').style.display='none';
@@ -64,79 +64,83 @@ function switchTab(t) {
     if(t==='docs') loadDocs();
 }
 
-// --- RÄNGE (DRAG & DROP) ---
+// --- RÄNGE (LOGIK UPDATE) ---
 async function loadRanks() {
     const res = await fetch(`${API}/ranks`);
     allRanks = await res.json();
     const container = document.getElementById('ranks-list-container');
     
-    container.innerHTML = allRanks.map(r => `
-        <div class="card rank-card" draggable="true" data-name="${r.name}" onclick="editRank('${r.name}')" 
-             style="border-left:5px solid ${r.color}; cursor:grab;">
+    container.innerHTML = allRanks.map(r => {
+        // REGEL: Ich darf nur Ränge bewegen, die unter mir sind (Level > Mein Level)
+        const canManage = r.level > currentUser.level || currentUser.rank === 'admin';
+        // Visuelles Feedback
+        const opacity = canManage ? 1 : 0.5;
+        const cursor = canManage ? 'grab' : 'not-allowed';
+        const icon = canManage ? '≡' : '🔒';
+
+        // draggable attribut nur setzen wenn erlaubt
+        return `
+        <div class="card rank-card" 
+             draggable="${canManage}" 
+             data-name="${r.name}" 
+             onclick="${canManage ? `editRank('${r.name}')` : ''}" 
+             style="border-left:5px solid ${r.color}; cursor:${cursor}; opacity:${opacity};">
              <div style="display:flex; justify-content:space-between;">
                  <strong>${r.name}</strong>
-                 <span style="font-weight:bold; color:#7f8c8d;">≡</span>
+                 <span style="font-weight:bold; color:#7f8c8d;">${icon}</span>
              </div>
              <small>Lvl ${r.level}</small>
         </div>
-    `).join('');
+    `}).join('');
 
-    initDragAndDrop(); // Drag Funktion aktivieren
+    initDragAndDrop(); 
 }
 
 function initDragAndDrop() {
-    const draggables = document.querySelectorAll('.rank-card');
+    // Wähle nur Karten aus, die draggable="true" sind
+    const draggables = document.querySelectorAll('.rank-card[draggable="true"]');
     const container = document.getElementById('ranks-list-container');
 
     draggables.forEach(draggable => {
-        draggable.addEventListener('dragstart', () => {
-            draggable.classList.add('dragging');
-        });
-        draggable.addEventListener('dragend', () => {
-            draggable.classList.remove('dragging');
-        });
+        draggable.addEventListener('dragstart', () => { draggable.classList.add('dragging'); });
+        draggable.addEventListener('dragend', () => { draggable.classList.remove('dragging'); });
     });
 
     container.addEventListener('dragover', e => {
-        e.preventDefault(); // Erlaubt das Droppen
+        e.preventDefault();
         const afterElement = getDragAfterElement(container, e.clientY, e.clientX);
         const draggable = document.querySelector('.dragging');
-        if (afterElement == null) {
-            container.appendChild(draggable);
-        } else {
-            container.insertBefore(draggable, afterElement);
-        }
+        if(!draggable) return; // Sicherheitscheck
+        if (afterElement == null) { container.appendChild(draggable); } 
+        else { container.insertBefore(draggable, afterElement); }
     });
 }
 
-// Hilfsfunktion: Wo wird das Element hingeschoben?
 function getDragAfterElement(container, y, x) {
+    // WICHTIG: Man darf auch nicht VOR eine Karte droppen, die gesperrt ist (höheres Level)
+    // Aber das regelt das Backend zusätzlich. Hier UI Logik:
     const draggableElements = [...container.querySelectorAll('.rank-card:not(.dragging)')];
-
     return draggableElements.reduce((closest, child) => {
         const box = child.getBoundingClientRect();
-        // Einfache Distanzberechnung für Grid
         const offset = x - box.left - box.width / 2;
-        if (offset < 0 && offset > closest.offset) {
-            return { offset: offset, element: child };
-        } else {
-            return closest;
-        }
+        if (offset < 0 && offset > closest.offset) { return { offset: offset, element: child }; } 
+        else { return closest; }
     }, { offset: Number.NEGATIVE_INFINITY }).element;
 }
 
 async function saveRankOrder() {
-    // Sammle alle Namen in der neuen Reihenfolge
     const cards = document.querySelectorAll('.rank-card');
     const rankNames = Array.from(cards).map(card => card.getAttribute('data-name'));
     
-    await fetch(`${API}/ranks/reorder`, {
+    // Wir senden wer es ausführt
+    const res = await fetch(`${API}/ranks/reorder`, {
         method: 'POST', 
         headers: {'Content-Type':'application/json'},
-        body: JSON.stringify({ rankNames })
+        body: JSON.stringify({ rankNames, executedBy: currentUser.username })
     });
-    alert('Neue Hierarchie gespeichert!');
-    loadRanks(); // Neu laden um Level Zahlen zu aktualisieren
+    const d = await res.json();
+    if(d.error) alert('Fehler: ' + d.error);
+    else { alert('Gespeichert!'); loadRanks(); }
 }
 
 function editRank(name) {
@@ -145,22 +149,51 @@ function editRank(name) {
     document.getElementById('new-rank-name').value = r.name;
     document.getElementById('new-rank-name').disabled = true;
     document.getElementById('new-rank-color').value = r.color;
-    // Checkboxen
-    document.getElementById('perm-docs').checked = r.permissions.includes('access_docs');
-    document.getElementById('perm-users').checked = r.permissions.includes('manage_users');
-    document.getElementById('perm-kick').checked = r.permissions.includes('kick_users');
-    document.getElementById('perm-ranks').checked = r.permissions.includes('manage_ranks');
+    
+    // Checkboxen: Nur aktivieren wenn USER das Recht selbst hat (oder Admin ist)
+    const myPerms = currentUser.permissions;
+    const isAdmin = currentUser.username === 'admin';
+
+    setupCheckbox('perm-docs', 'access_docs', r.permissions, myPerms, isAdmin);
+    setupCheckbox('perm-users', 'manage_users', r.permissions, myPerms, isAdmin);
+    setupCheckbox('perm-kick', 'kick_users', r.permissions, myPerms, isAdmin);
+    setupCheckbox('perm-ranks', 'manage_ranks', r.permissions, myPerms, isAdmin);
 
     document.getElementById('btn-save-rank').innerText = "Speichern";
     document.getElementById('btn-delete-rank').style.display = "block";
     document.getElementById('btn-cancel-rank').style.display = "block";
 }
 
+// Hilfsfunktion für Checkboxen
+function setupCheckbox(elmId, permName, rankPerms, myPerms, isAdmin) {
+    const cb = document.getElementById(elmId);
+    cb.checked = rankPerms.includes(permName);
+    
+    // Wenn ich das Recht selbst NICHT habe, darf ich es auch nicht ändern/vergeben
+    if (!myPerms.includes(permName) && !isAdmin) {
+        cb.disabled = true;
+        // Optisch kennzeichnen (z.B. Eltern-Label grau machen)
+        cb.parentElement.style.color = '#ccc';
+        cb.parentElement.title = "Du besitzt dieses Recht nicht.";
+    } else {
+        cb.disabled = false;
+        cb.parentElement.style.color = '';
+        cb.parentElement.title = "";
+    }
+}
+
 function cancelRankEdit() {
     document.getElementById('new-rank-name').value = '';
     document.getElementById('new-rank-name').disabled = false;
     document.getElementById('new-rank-color').value = '#3498db';
-    document.querySelectorAll('input[type=checkbox]').forEach(c=>c.checked=false);
+    
+    // Checkboxen reset
+    document.querySelectorAll('input[type=checkbox]').forEach(c=> {
+        c.checked=false; 
+        c.disabled=false;
+        c.parentElement.style.color='';
+    });
+    
     document.getElementById('btn-save-rank').innerText = "Erstellen";
     document.getElementById('btn-delete-rank').style.display = "none";
     document.getElementById('btn-cancel-rank').style.display = "none";
@@ -177,28 +210,30 @@ async function saveRank() {
 
     if(!name) return alert('Name fehlt');
     
-    await fetch(`${API}/ranks`, {
+    const res = await fetch(`${API}/ranks`, {
         method: 'POST',
         headers: {'Content-Type':'application/json'},
-        body: JSON.stringify({ name, color, permissions: p })
+        body: JSON.stringify({ name, color, permissions: p, executedBy: currentUser.username })
     });
-    alert('Gespeichert! Bitte Reihenfolge ggf. anpassen.');
-    cancelRankEdit(); 
-    loadRanks();
+    const d = await res.json();
+    if(d.error) alert(d.error); else { alert('Gespeichert!'); cancelRankEdit(); loadRanks(); }
 }
 
 async function deleteRankTrigger() {
     const name = document.getElementById('new-rank-name').value;
     if(confirm(`Rang "${name}" löschen?`)) {
-        await fetch(`${API}/ranks/${name}`, { method: 'DELETE' });
-        alert('Gelöscht'); cancelRankEdit(); loadRanks(); 
+        const res = await fetch(`${API}/ranks/${name}`, { 
+            method: 'DELETE',
+            headers: {'Content-Type':'application/json'},
+            body: JSON.stringify({ executedBy: currentUser.username })
+        });
+        const d = await res.json();
+        if(d.error) alert(d.error); else { alert('Gelöscht'); cancelRankEdit(); loadRanks(); }
     }
 }
 
-// REST
-async function loadUsers() {
-    const res = await fetch(`${API}/users`); allUsers = await res.json(); filterUsers();
-}
+// REST (Standard Funktionen)
+async function loadUsers() { const res = await fetch(`${API}/users`); allUsers = await res.json(); filterUsers(); }
 function filterUsers() {
     const t = document.getElementById('user-search').value.toLowerCase();
     document.getElementById('users-list').innerHTML = allUsers.filter(u=>u.username.includes(t)||u.full_name.toLowerCase().includes(t)).map(u => {

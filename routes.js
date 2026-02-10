@@ -3,6 +3,25 @@ const router = express.Router();
 const bcrypt = require('bcryptjs');
 const { pool } = require('./database');
 
+// Hilfsfunktion: Prüfen ob User Rechte hat
+async function getExecutorData(username) {
+    const res = await pool.query(`
+        SELECT u.username, r.level, r.permissions 
+        FROM users u 
+        LEFT JOIN ranks r ON u.rank = r.name 
+        WHERE u.username = $1
+    `, [username]);
+    
+    if (res.rows.length === 0) return null;
+    
+    const data = res.rows[0];
+    return {
+        username: data.username,
+        level: data.level || 99,
+        permissions: data.permissions ? JSON.parse(data.permissions) : []
+    };
+}
+
 // --- LOGIN ---
 router.post('/login', async (req, res) => {
     const { username, password } = req.body;
@@ -42,33 +61,85 @@ router.post('/heartbeat', async (req, res) => {
 
 // --- RÄNGE ---
 router.get('/ranks', async (req, res) => {
-    // Sortiert nach Level aufsteigend (1 ist wichtig, 99 unwichtig)
     const result = await pool.query('SELECT * FROM ranks ORDER BY level ASC'); 
     res.json(result.rows.map(r => ({ ...r, permissions: JSON.parse(r.permissions || '[]') })));
 });
 
+// RANK ERSTELLEN / BEARBEITEN (Mit Sicherheits-Check)
 router.post('/ranks', async (req, res) => {
-    const { name, color, permissions } = req.body;
-    // Neue Ränge bekommen erstmal Level 99 (ganz hinten), bis sie sortiert werden
+    const { name, color, permissions, executedBy } = req.body; // executedBy muss vom Client kommen!
+    
+    // 1. Wer führt das aus?
+    const executor = await getExecutorData(executedBy);
+    if (!executor) return res.status(403).json({ error: "User nicht gefunden." });
+
+    // 2. Ziel-Rang prüfen (existiert er schon?)
+    const targetRankRes = await pool.query('SELECT level FROM ranks WHERE name = $1', [name]);
+    const targetExists = targetRankRes.rows.length > 0;
+    
+    if (targetExists) {
+        const targetLevel = targetRankRes.rows[0].level;
+        // REGEL: Man darf nichts bearbeiten, was kleiner oder gleich dem eigenen Level ist.
+        // Ausnahme: Der 'admin' User darf alles (oder wir lassen das weg für strikte Logik)
+        if (targetLevel <= executor.level && executor.username !== 'admin') {
+            return res.status(403).json({ error: "Du kannst diesen Rang nicht bearbeiten (Level zu hoch)." });
+        }
+    }
+
+    // 3. Rechte-Check: Darf ich Rechte vergeben, die ich selbst nicht habe?
+    // Wir prüfen jedes angefragte Recht.
+    for (const perm of permissions) {
+        if (!executor.permissions.includes(perm) && executor.username !== 'admin') {
+            return res.status(403).json({ error: `Du kannst das Recht '${perm}' nicht vergeben, da du es selbst nicht hast.` });
+        }
+    }
+
+    // Speichern (Level wird beim Update nicht geändert, nur Farbe/Rechte. Neue Ränge kriegen 99)
     await pool.query(`
         INSERT INTO ranks (name, color, permissions, level) VALUES ($1, $2, $3, 99)
         ON CONFLICT (name) DO UPDATE SET color = $2, permissions = $3
     `, [name, color, JSON.stringify(permissions)]);
+    
     res.json({ success: true });
 });
 
-// NEU: Reihenfolge speichern
+// REIHENFOLGE ÄNDERN (Mit Sicherheits-Check)
 router.post('/ranks/reorder', async (req, res) => {
-    const { rankNames } = req.body; // Array mit Namen in neuer Reihenfolge: ['admin', 'chef', 'user']
+    const { rankNames, executedBy } = req.body;
     
-    // Wir gehen durch die Liste und geben jedem Rang seinen Index als Level
-    // Index 0 (erster) wird Level 1
-    // Index 1 (zweiter) wird Level 2 ...
+    const executor = await getExecutorData(executedBy);
+    if (!executor) return res.status(403).json({ error: "User error." });
+
     try {
+        // Wir müssen sicherstellen, dass KEIN Rang, der mächtiger/gleich dem Executor ist, verschoben wurde.
+        // Wir holen die aktuelle Liste aus der DB.
+        const currentRanksRes = await pool.query('SELECT name, level FROM ranks');
+        const currentRanks = currentRanksRes.rows;
+
         for (let i = 0; i < rankNames.length; i++) {
-            const level = i + 1;
             const name = rankNames[i];
-            await pool.query('UPDATE ranks SET level = $1 WHERE name = $2', [level, name]);
+            const newLevel = i + 1; // Das neue Level basierend auf Position
+            
+            // Finde den alten Rang in der DB
+            const oldRankData = currentRanks.find(r => r.name === name);
+            if (!oldRankData) continue; 
+
+            // Wenn sich das Level ändern würde...
+            if (oldRankData.level !== newLevel) {
+                // REGEL: Ich darf Ränge, die <= meinem Level sind, NICHT bewegen.
+                if (oldRankData.level <= executor.level && executor.username !== 'admin') {
+                    return res.status(403).json({ error: `Du darfst den Rang '${name}' nicht verschieben.` });
+                }
+                
+                // REGEL: Ich darf keinen Rang AUF eine Position schieben, die <= meinem Level ist.
+                // (Also ich darf niemanden über mich befördern)
+                if (newLevel <= executor.level && executor.username !== 'admin') {
+                     return res.status(403).json({ error: `Du kannst niemanden auf Level ${newLevel} befördern (Du bist ${executor.level}).` });
+                }
+            }
+
+            // Wenn alles okay ist, Update
+            await pool.query('UPDATE ranks SET level = $1 WHERE name = $2', [newLevel, name]);
         }
         res.json({ success: true });
     } catch (err) {
@@ -78,7 +149,20 @@ router.post('/ranks/reorder', async (req, res) => {
 
 router.delete('/ranks/:name', async (req, res) => {
     const { name } = req.params;
+    const { executedBy } = req.body;
+
     if(name === 'admin') return res.status(403).json({error:'Verboten'});
+
+    const executor = await getExecutorData(executedBy);
+    const targetRes = await pool.query('SELECT level FROM ranks WHERE name = $1', [name]);
+    
+    if(targetRes.rows.length > 0) {
+        const targetLevel = targetRes.rows[0].level;
+        if (targetLevel <= executor.level && executor.username !== 'admin') {
+            return res.status(403).json({ error: 'Rang zu hoch, kann nicht gelöscht werden.' });
+        }
+    }
+
     await pool.query('DELETE FROM ranks WHERE name = $1', [name]);
     await pool.query("UPDATE users SET rank = 'besucher' WHERE rank = $1", [name]);
     res.json({ success: true });
@@ -107,11 +191,14 @@ router.get('/users', async (req, res) => {
     res.json(result.rows);
 });
 router.post('/users/rank', async (req, res) => {
+    // Hier müsste man eigentlich auch prüfen, ob man den Rang vergeben darf!
+    // Für dieses Beispiel lassen wir es simpel, aber in Zukunft: Level Check!
     await pool.query('UPDATE users SET rank = $1 WHERE username = $2', [req.body.newRank, req.body.username]);
     res.json({ success: true });
 });
 router.post('/users/kick', async (req, res) => {
     const { username, minutes, reason, adminName, isBan } = req.body;
+    // Auch hier: Man sollte eigentlich niemanden kicken dürfen, der über einem steht.
     let bannedUntil = null;
     if (isBan && minutes > 0) bannedUntil = new Date(Date.now() + minutes * 60000);
     await pool.query(`UPDATE users SET banned_until = $1, force_logout = true, kick_message = $2, kicked_by = $3 WHERE username = $4`, [bannedUntil, reason, adminName, username]);
