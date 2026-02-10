@@ -34,10 +34,20 @@
             <h2>Panel</h2>
             <div class="nav-links">
                 <button id="nav-docs" onclick="switchTab('docs')" class="active">📄 Akten</button>
-                <h3 style="margin:20px 0 10px 0; color:#bdc3c7; font-size:0.9em;">Admin</h3>
-                <button id="nav-users" onclick="switchTab('users')">👥 Personal <span class="lock">🔒</span></button>
-                <button id="nav-ranks" onclick="switchTab('ranks')">⚙️ Ränge <span class="lock">🔒</span></button>
+                
+                <div style="margin-top: 10px;">
+                    <button onclick="toggleAdminMenu()" class="nav-folder">
+                        <span>🛡️ Verwaltung</span>
+                        <span id="admin-arrow" style="font-size: 0.8em;">▶</span>
+                    </button>
+                    
+                    <div id="admin-submenu" style="display:none; overflow:hidden;">
+                        <button id="nav-users" onclick="switchTab('users')">👥 Personal <span class="lock">🔒</span></button>
+                        <button id="nav-ranks" onclick="switchTab('ranks')">⚙️ Ränge <span class="lock">🔒</span></button>
+                    </div>
+                </div>
             </div>
+
             <div class="user-profile-bottom">
                 <div id="profile-name"></div>
                 <div id="profile-rank" class="badge"></div>
@@ -84,7 +94,6 @@
                         <input id="new-rank-name" placeholder="Name">
                         <input type="color" id="new-rank-color" value="#3498db" style="height:40px; width:100%;">
                     </div>
-                    
                     <div style="margin:15px 0;">
                         <strong>Rechte:</strong><br>
                         <label><input type="checkbox" id="perm-docs"> Akten lesen</label>
@@ -92,7 +101,6 @@
                         <label><input type="checkbox" id="perm-kick"> Kicken/Bannen</label>
                         <label><input type="checkbox" id="perm-ranks"> Ränge bearbeiten</label>
                     </div>
-
                     <div style="display:flex; gap:10px;">
                         <button onclick="saveRank()" id="btn-save-rank" style="flex:1;">Speichern</button>
                         <button onclick="deleteRankTrigger()" id="btn-delete-rank" class="btn-danger" style="display:none; flex:1;">Löschen</button>
@@ -101,16 +109,13 @@
                 </div>
 
                 <div style="display:flex; justify-content:space-between; align-items:center; margin-top:20px;">
-                    <h3>Hierarchie (Drag & Drop zum Sortieren)</h3>
-                    <button onclick="saveRankOrder()" style="background:#27ae60;">💾 Neue Reihenfolge speichern</button>
+                    <h3>Hierarchie (Drag & Drop)</h3>
+                    <button onclick="saveRankOrder()" style="background:#27ae60;">💾 Reihenfolge speichern</button>
                 </div>
-                
-                <p style="color:#7f8c8d; font-size:0.9em;">Oben Links = Höchster Rang. Unten Rechts = Niedrigster Rang.</p>
                 <div id="ranks-list-container" class="grid-list drag-container"></div>
             </div>
         </main>
     </div>
-    
-    <script src="client.js?v=7"></script>
+    <script src="client.js?v=8"></script>
 </body>
 </html>

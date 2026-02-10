@@ -55,3 +55,41 @@ button:hover { background: #34495e; }
     flex-wrap: wrap;
     gap: 15px;
 }
+
+/* ... dein existierender Code ... */
+
+/* NEU: Admin Ordner Styles */
+.nav-folder {
+    font-weight: bold;
+    color: #ecf0f1 !important;
+    background: rgba(255,255,255,0.05) !important;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+}
+
+.nav-folder:hover {
+    background: rgba(255,255,255,0.1) !important;
+}
+
+/* Untermenü Buttons etwas einrücken */
+#admin-submenu button {
+    padding-left: 25px;
+    font-size: 0.95em;
+    border-left: 2px solid transparent;
+}
+
+#admin-submenu button.active {
+    border-left: 2px solid #3498db;
+    background: rgba(52, 152, 219, 0.2);
+}
+
+/* Pfeil Animation */
+#admin-arrow {
+    transition: transform 0.3s;
+}
+
+/* Klasse für gedrehten Pfeil (wird per JS hinzugefügt) */
+.rotate-down {
+    transform: rotate(90deg);
+}

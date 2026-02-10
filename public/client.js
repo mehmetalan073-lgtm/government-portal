@@ -264,3 +264,22 @@ function showRegister(){document.getElementById('login-screen').style.display='n
 function showLogin(){document.getElementById('register-screen').style.display='none';document.getElementById('login-screen').style.display='flex'}
 async function register(){ const res = await fetch(`${API}/register`,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({username:document.getElementById('reg-user').value,fullName:document.getElementById('reg-name').value,password:document.getElementById('reg-pass').value})}); if(res.ok){alert('Registriert');showLogin()} }
 function logout(){location.reload()}
+
+// ... dein ganzer Code von vorher ...
+
+// FÜGE DAS GANZ AM ENDE HINZU:
+
+function toggleAdminMenu() {
+    const menu = document.getElementById('admin-submenu');
+    const arrow = document.getElementById('admin-arrow');
+    
+    if (menu.style.display === 'none') {
+        // Öffnen
+        menu.style.display = 'block';
+        arrow.classList.add('rotate-down');
+    } else {
+        // Schließen
+        menu.style.display = 'none';
+        arrow.classList.remove('rotate-down');
+    }
+}
