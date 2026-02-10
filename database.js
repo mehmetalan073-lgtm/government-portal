@@ -7,21 +7,13 @@ const pool = new Pool({
 });
 
 async function initDB() {
-    console.log('🔄 Prüfe Datenbank...');
+    console.log('🔄 Datenbank Drag & Drop Update...');
     const client = await pool.connect();
     try {
-        // 1. Tabellen sicherstellen (NUR WENN NICHT EXISTENT)
-        // Wir nutzen "IF NOT EXISTS", damit bestehende Daten bleiben!
-        
         await client.query(`CREATE TABLE IF NOT EXISTS users (
-            id SERIAL PRIMARY KEY, 
-            username TEXT UNIQUE NOT NULL, 
-            password_hash TEXT NOT NULL,
-            full_name TEXT NOT NULL, 
-            rank TEXT DEFAULT 'besucher', 
-            created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-            banned_until TIMESTAMP, 
-            last_seen TIMESTAMP
+            id SERIAL PRIMARY KEY, username TEXT UNIQUE NOT NULL, password_hash TEXT NOT NULL,
+            full_name TEXT NOT NULL, rank TEXT DEFAULT 'besucher', created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+            banned_until TIMESTAMP, last_seen TIMESTAMP, kick_message TEXT, kicked_by TEXT, force_logout BOOLEAN DEFAULT FALSE
         );`);
 
         await client.query(`CREATE TABLE IF NOT EXISTS documents (
@@ -29,50 +21,43 @@ async function initDB() {
             created_by TEXT REFERENCES users(username), created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
         );`);
 
+        // WICHTIG: Level Spalte
         await client.query(`CREATE TABLE IF NOT EXISTS ranks (
-            name TEXT PRIMARY KEY, color TEXT NOT NULL, permissions TEXT DEFAULT '[]'
+            name TEXT PRIMARY KEY, color TEXT NOT NULL, permissions TEXT DEFAULT '[]', level INTEGER DEFAULT 99
         );`);
-
-        // 2. Admin-Rechte sicherstellen (Ohne Daten zu löschen)
-        // Wir aktualisieren nur die Rechte des Admins, falls sie fehlen
-        const adminPerms = JSON.stringify(['access_docs', 'manage_users', 'manage_ranks', 'kick_users']);
         
+        // Fügt Spalte hinzu, falls sie bei dir noch fehlt
+        await client.query("ALTER TABLE ranks ADD COLUMN IF NOT EXISTS level INTEGER DEFAULT 99");
+
+        // Admin Reset (Level 1)
+        const adminPerms = JSON.stringify(['access_docs', 'manage_users', 'manage_ranks', 'kick_users']);
         await client.query(`
-            INSERT INTO ranks (name, color, permissions) 
-            VALUES ($1, $2, $3)
-            ON CONFLICT (name) DO UPDATE SET permissions = $3
+            INSERT INTO ranks (name, color, permissions, level) VALUES ($1, $2, $3, 1)
+            ON CONFLICT (name) DO UPDATE SET permissions = $3, level = 1
         `, ['admin', '#e74c3c', adminPerms]);
 
-        // 3. Standard-Ränge (nur wenn sie fehlen)
+        // Andere Ränge
         const otherRanks = [
-            ['nc-team', '#e67e22', JSON.stringify(['access_docs', 'manage_users', 'kick_users'])],
-            ['user', '#3498db', JSON.stringify(['access_docs'])],
-            ['besucher', '#95a5a6', JSON.stringify([])]
+            ['nc-team', '#e67e22', JSON.stringify(['access_docs', 'manage_users', 'kick_users']), 2],
+            ['user', '#3498db', JSON.stringify(['access_docs']), 3],
+            ['besucher', '#95a5a6', JSON.stringify([]), 99]
         ];
         
-        for (const [name, color, perms] of otherRanks) {
+        for (const [name, color, perms, lvl] of otherRanks) {
             await client.query(`
-                INSERT INTO ranks (name, color, permissions) 
-                VALUES ($1, $2, $3) 
+                INSERT INTO ranks (name, color, permissions, level) VALUES ($1, $2, $3, $4) 
                 ON CONFLICT (name) DO NOTHING
-            `, [name, color, perms]);
+            `, [name, color, perms, lvl]);
         }
 
-        // 4. Admin User existiert? (Passwort resetten wir NICHT mehr bei jedem Start)
-        // Nur wenn Admin gar nicht existiert, legen wir ihn an.
         const hash = await bcrypt.hash('memo', 10);
         await client.query(`
-            INSERT INTO users (username, password_hash, full_name, rank)
-            VALUES ($1, $2, $3, 'admin')
+            INSERT INTO users (username, password_hash, full_name, rank) VALUES ($1, $2, $3, 'admin')
             ON CONFLICT (username) DO NOTHING
         `, ['admin', hash, 'System Administrator']);
         
-        console.log('✅ Datenbank bereit & gesichert.');
-    } catch (err) {
-        console.error('❌ DB Fehler:', err);
-    } finally {
-        client.release();
-    }
+        console.log('✅ Datenbank bereit.');
+    } catch (err) { console.error('❌ DB Fehler:', err); } finally { client.release(); }
 }
 
 module.exports = { pool, initDB };
