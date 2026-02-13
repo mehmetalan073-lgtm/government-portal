@@ -5,6 +5,7 @@ let allRanks = [];
 let selectedUser = null;
 let heartbeatInterval = null;
 
+// --- LOGIN ---
 async function login() {
     const u = document.getElementById('login-user').value;
     const p = document.getElementById('login-pass').value;
@@ -26,8 +27,8 @@ function startBanTimer(sec) {
     let t = sec;
     const i = setInterval(() => {
         t--;
-        if(t<=0) { clearInterval(i); timer.innerText="Frei."; timer.style.color="green"; }
-        else { timer.innerText=`Sperre: ${Math.floor(t/60)}m ${t%60}s`; }
+        if(t<=0) { clearInterval(i); timer.innerText="Sperre vorbei."; timer.style.color="green"; }
+        else { timer.innerText=`Sperre noch: ${Math.floor(t/60)}m ${t%60}s`; }
     }, 1000);
 }
 
@@ -49,8 +50,15 @@ function startHeartbeat() {
         if(!currentUser) return;
         const res = await fetch(`${API}/heartbeat`, {method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({username:currentUser.username})});
         const d = await res.json();
-        if(d.kicked) { alert(`GEKICKT!\nGrund: ${d.reason}`); location.reload(); }
+        if(d.kicked) { alert(`⚠️ DU WURDEST GEKICKT!\n\nGrund: ${d.reason}`); location.reload(); }
     }, 2000);
+}
+
+function toggleAdminMenu() {
+    const m = document.getElementById('admin-submenu');
+    const a = document.getElementById('admin-arrow');
+    if(m.style.display==='none'){ m.style.display='block'; a.classList.add('rotate-down'); }
+    else{ m.style.display='none'; a.classList.remove('rotate-down'); }
 }
 
 function switchTab(t) {
@@ -64,83 +72,73 @@ function switchTab(t) {
     if(t==='docs') loadDocs();
 }
 
-// --- RÄNGE (LOGIK UPDATE) ---
+// --- RÄNGE MIT PFEILEN ---
 async function loadRanks() {
     const res = await fetch(`${API}/ranks`);
     allRanks = await res.json();
     const container = document.getElementById('ranks-list-container');
     
-    container.innerHTML = allRanks.map(r => {
-        // REGEL: Ich darf nur Ränge bewegen, die unter mir sind (Level > Mein Level)
+    container.innerHTML = allRanks.map((r, index) => {
+        // Logik: Darf ich diesen Rang bewegen? (Nur wenn Level > Mein Level)
         const canManage = r.level > currentUser.level || currentUser.rank === 'admin';
-        // Visuelles Feedback
-        const opacity = canManage ? 1 : 0.5;
-        const cursor = canManage ? 'grab' : 'not-allowed';
-        const icon = canManage ? '≡' : '🔒';
+        
+        let arrows = '';
+        if (canManage) {
+            // Pfeil Hoch (nur wenn nicht erster in der Liste)
+            const upBtn = index > 0 ? `<button class="rank-btn" onclick="event.stopPropagation(); moveRank(${index}, -1)">▲</button>` : `<div class="rank-btn" style="opacity:0"></div>`;
+            // Pfeil Runter (nur wenn nicht letzter)
+            const downBtn = index < allRanks.length - 1 ? `<button class="rank-btn" onclick="event.stopPropagation(); moveRank(${index}, 1)">▼</button>` : `<div class="rank-btn" style="opacity:0"></div>`;
+            
+            arrows = `<div class="rank-actions">${upBtn}${downBtn}</div>`;
+        }
 
-        // draggable attribut nur setzen wenn erlaubt
+        const icon = canManage ? '✏️' : '🔒';
+        const opacity = canManage ? 1 : 0.6;
+        const cursor = canManage ? 'pointer' : 'not-allowed';
+
         return `
-        <div class="card rank-card" 
-             draggable="${canManage}" 
-             data-name="${r.name}" 
-             onclick="${canManage ? `editRank('${r.name}')` : ''}" 
-             style="border-left:5px solid ${r.color}; cursor:${cursor}; opacity:${opacity};">
-             <div style="display:flex; justify-content:space-between;">
-                 <strong>${r.name}</strong>
-                 <span style="font-weight:bold; color:#7f8c8d;">${icon}</span>
+        <div class="card rank-card" onclick="${canManage ? `editRank('${r.name}')` : ''}" 
+             style="border-left:6px solid ${r.color}; cursor:${cursor}; opacity:${opacity}">
+             <div style="display:flex; justify-content:space-between; align-items:center;">
+                 <div>
+                    <strong style="font-size:1.1em">${r.name}</strong><br>
+                    <small style="color:#7f8c8d">Level ${r.level}</small>
+                 </div>
+                 <span style="font-size:1.2em;">${icon}</span>
              </div>
-             <small>Lvl ${r.level}</small>
-        </div>
-    `}).join('');
-
-    initDragAndDrop(); 
+             ${arrows}
+        </div>`;
+    }).join('');
 }
 
-function initDragAndDrop() {
-    // Wähle nur Karten aus, die draggable="true" sind
-    const draggables = document.querySelectorAll('.rank-card[draggable="true"]');
-    const container = document.getElementById('ranks-list-container');
+// Neue Funktion: Rang verschieben
+async function moveRank(index, direction) {
+    // direction: -1 = hoch, 1 = runter
+    const newIndex = index + direction;
+    if (newIndex < 0 || newIndex >= allRanks.length) return;
 
-    draggables.forEach(draggable => {
-        draggable.addEventListener('dragstart', () => { draggable.classList.add('dragging'); });
-        draggable.addEventListener('dragend', () => { draggable.classList.remove('dragging'); });
-    });
+    // Wir tauschen die Positionen im Array visuell
+    const temp = allRanks[index];
+    allRanks[index] = allRanks[newIndex];
+    allRanks[newIndex] = temp;
 
-    container.addEventListener('dragover', e => {
-        e.preventDefault();
-        const afterElement = getDragAfterElement(container, e.clientY, e.clientX);
-        const draggable = document.querySelector('.dragging');
-        if(!draggable) return; // Sicherheitscheck
-        if (afterElement == null) { container.appendChild(draggable); } 
-        else { container.insertBefore(draggable, afterElement); }
-    });
-}
+    // Wir erstellen die neue Namensliste
+    const rankNames = allRanks.map(r => r.name);
 
-function getDragAfterElement(container, y, x) {
-    // WICHTIG: Man darf auch nicht VOR eine Karte droppen, die gesperrt ist (höheres Level)
-    // Aber das regelt das Backend zusätzlich. Hier UI Logik:
-    const draggableElements = [...container.querySelectorAll('.rank-card:not(.dragging)')];
-    return draggableElements.reduce((closest, child) => {
-        const box = child.getBoundingClientRect();
-        const offset = x - box.left - box.width / 2;
-        if (offset < 0 && offset > closest.offset) { return { offset: offset, element: child }; } 
-        else { return closest; }
-    }, { offset: Number.NEGATIVE_INFINITY }).element;
-}
-
-async function saveRankOrder() {
-    const cards = document.querySelectorAll('.rank-card');
-    const rankNames = Array.from(cards).map(card => card.getAttribute('data-name'));
-    
-    // Wir senden wer es ausführt
+    // An Server senden
     const res = await fetch(`${API}/ranks/reorder`, {
         method: 'POST', 
         headers: {'Content-Type':'application/json'},
         body: JSON.stringify({ rankNames, executedBy: currentUser.username })
     });
+    
     const d = await res.json();
-    if(d.error) alert('Fehler: ' + d.error);
-    else { alert('Gespeichert!'); loadRanks(); }
+    if(d.error) {
+        alert("Fehler: " + d.error);
+        loadRanks(); // Zurücksetzen bei Fehler
+    } else {
+        loadRanks(); // Neu laden (Level Zahlen updaten sich)
+    }
 }
 
 function editRank(name) {
@@ -149,36 +147,30 @@ function editRank(name) {
     document.getElementById('new-rank-name').value = r.name;
     document.getElementById('new-rank-name').disabled = true;
     document.getElementById('new-rank-color').value = r.color;
-    
-    // Checkboxen: Nur aktivieren wenn USER das Recht selbst hat (oder Admin ist)
+
     const myPerms = currentUser.permissions;
     const isAdmin = currentUser.username === 'admin';
-
     setupCheckbox('perm-docs', 'access_docs', r.permissions, myPerms, isAdmin);
     setupCheckbox('perm-users', 'manage_users', r.permissions, myPerms, isAdmin);
     setupCheckbox('perm-kick', 'kick_users', r.permissions, myPerms, isAdmin);
     setupCheckbox('perm-ranks', 'manage_ranks', r.permissions, myPerms, isAdmin);
 
-    document.getElementById('btn-save-rank').innerText = "Speichern";
+    document.getElementById('btn-save-rank').innerText = "Änderungen speichern";
     document.getElementById('btn-delete-rank').style.display = "block";
     document.getElementById('btn-cancel-rank').style.display = "block";
+    // Scrollen
+    document.getElementById('rank-form-container').scrollIntoView({behavior: 'smooth'});
 }
 
-// Hilfsfunktion für Checkboxen
 function setupCheckbox(elmId, permName, rankPerms, myPerms, isAdmin) {
     const cb = document.getElementById(elmId);
     cb.checked = rankPerms.includes(permName);
-    
-    // Wenn ich das Recht selbst NICHT habe, darf ich es auch nicht ändern/vergeben
     if (!myPerms.includes(permName) && !isAdmin) {
         cb.disabled = true;
-        // Optisch kennzeichnen (z.B. Eltern-Label grau machen)
-        cb.parentElement.style.color = '#ccc';
-        cb.parentElement.title = "Du besitzt dieses Recht nicht.";
+        cb.parentElement.style.opacity = "0.5";
     } else {
         cb.disabled = false;
-        cb.parentElement.style.color = '';
-        cb.parentElement.title = "";
+        cb.parentElement.style.opacity = "1";
     }
 }
 
@@ -186,15 +178,8 @@ function cancelRankEdit() {
     document.getElementById('new-rank-name').value = '';
     document.getElementById('new-rank-name').disabled = false;
     document.getElementById('new-rank-color').value = '#3498db';
-    
-    // Checkboxen reset
-    document.querySelectorAll('input[type=checkbox]').forEach(c=> {
-        c.checked=false; 
-        c.disabled=false;
-        c.parentElement.style.color='';
-    });
-    
-    document.getElementById('btn-save-rank').innerText = "Erstellen";
+    document.querySelectorAll('input[type=checkbox]').forEach(c=>{c.checked=false; c.disabled=false; c.parentElement.style.opacity="1";});
+    document.getElementById('btn-save-rank').innerText = "Neuen Rang erstellen";
     document.getElementById('btn-delete-rank').style.display = "none";
     document.getElementById('btn-cancel-rank').style.display = "none";
 }
@@ -209,10 +194,8 @@ async function saveRank() {
     if(document.getElementById('perm-ranks').checked) p.push('manage_ranks');
 
     if(!name) return alert('Name fehlt');
-    
     const res = await fetch(`${API}/ranks`, {
-        method: 'POST',
-        headers: {'Content-Type':'application/json'},
+        method: 'POST', headers: {'Content-Type':'application/json'},
         body: JSON.stringify({ name, color, permissions: p, executedBy: currentUser.username })
     });
     const d = await res.json();
@@ -222,24 +205,20 @@ async function saveRank() {
 async function deleteRankTrigger() {
     const name = document.getElementById('new-rank-name').value;
     if(confirm(`Rang "${name}" löschen?`)) {
-        const res = await fetch(`${API}/ranks/${name}`, { 
-            method: 'DELETE',
-            headers: {'Content-Type':'application/json'},
-            body: JSON.stringify({ executedBy: currentUser.username })
-        });
+        const res = await fetch(`${API}/ranks/${name}`, { method: 'DELETE', headers: {'Content-Type':'application/json'}, body: JSON.stringify({ executedBy: currentUser.username }) });
         const d = await res.json();
         if(d.error) alert(d.error); else { alert('Gelöscht'); cancelRankEdit(); loadRanks(); }
     }
 }
 
-// REST (Standard Funktionen)
+// REST
 async function loadUsers() { const res = await fetch(`${API}/users`); allUsers = await res.json(); filterUsers(); }
 function filterUsers() {
     const t = document.getElementById('user-search').value.toLowerCase();
     document.getElementById('users-list').innerHTML = allUsers.filter(u=>u.username.includes(t)||u.full_name.toLowerCase().includes(t)).map(u => {
         const o = (new Date()-new Date(u.last_seen))<60000;
-        return `<div class="card" onclick="openModal('${u.username}')" style="display:flex; justify-content:space-between;">
-            <div><strong>${u.full_name}</strong> <div>${o?'🟢':'⚫'}</div></div> <span class="badge" style="background:${u.color}">${u.rank}</span></div>`;
+        return `<div class="card user-card" onclick="openModal('${u.username}')" style="display:flex; justify-content:space-between; align-items:center;">
+            <div><strong>${u.full_name}</strong> <small>(${u.username})</small> <div>${o?'🟢 Online':'⚫ Offline'}</div></div> <span class="badge" style="background:${u.color}">${u.rank}</span></div>`;
     }).join('');
 }
 async function openModal(un) {
@@ -264,22 +243,3 @@ function showRegister(){document.getElementById('login-screen').style.display='n
 function showLogin(){document.getElementById('register-screen').style.display='none';document.getElementById('login-screen').style.display='flex'}
 async function register(){ const res = await fetch(`${API}/register`,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({username:document.getElementById('reg-user').value,fullName:document.getElementById('reg-name').value,password:document.getElementById('reg-pass').value})}); if(res.ok){alert('Registriert');showLogin()} }
 function logout(){location.reload()}
-
-// ... dein ganzer Code von vorher ...
-
-// FÜGE DAS GANZ AM ENDE HINZU:
-
-function toggleAdminMenu() {
-    const menu = document.getElementById('admin-submenu');
-    const arrow = document.getElementById('admin-arrow');
-    
-    if (menu.style.display === 'none') {
-        // Öffnen
-        menu.style.display = 'block';
-        arrow.classList.add('rotate-down');
-    } else {
-        // Schließen
-        menu.style.display = 'none';
-        arrow.classList.remove('rotate-down');
-    }
-}
