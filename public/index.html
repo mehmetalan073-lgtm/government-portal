@@ -33,7 +33,12 @@
         <nav class="sidebar">
             <h2>Panel</h2>
             <div class="nav-links">
+                <button id="nav-meeting" onclick="switchTab('meeting')" style="display:none; margin-bottom:15px; border-left:4px solid #f1c40f;">
+                    📢 Besprechung
+                </button>
+
                 <button id="nav-docs" onclick="switchTab('docs')" class="active">📄 Akten</button>
+                
                 <div style="margin-top: 15px;">
                     <button onclick="toggleAdminMenu()" class="nav-folder">
                         <span>🛡️ Verwaltung</span> <span id="admin-arrow">▶</span>
@@ -52,6 +57,43 @@
         </nav>
 
         <main class="content">
+            
+            <div id="tab-meeting" class="tab" style="display:none;">
+                <h2>Führungsebenen Besprechung</h2>
+                
+                <div class="card" style="border-top: 5px solid #f1c40f;">
+                    <div style="display:flex; gap:10px;">
+                        <input id="meeting-text" placeholder="Neuen Punkt hinzufügen..." style="flex:3;">
+                        <select id="meeting-box-select" style="flex:1;">
+                            <option value="1">📌 Themen</option>
+                            <option value="2">⚠️ Wichtig / Kritisch</option>
+                            <option value="3">✅ Aufgaben</option>
+                            <option value="4">ℹ️ Info / Sonstiges</option>
+                        </select>
+                        <button onclick="addMeetingPoint()" style="flex:0.5; margin:10px 0;">+</button>
+                    </div>
+                </div>
+
+                <div class="meeting-grid">
+                    <div class="meeting-box" id="box-1">
+                        <h3>📌 Themen</h3>
+                        <div class="points-list" id="list-1"></div>
+                    </div>
+                    <div class="meeting-box" id="box-2">
+                        <h3>⚠️ Wichtig</h3>
+                        <div class="points-list" id="list-2"></div>
+                    </div>
+                    <div class="meeting-box" id="box-3">
+                        <h3>✅ Aufgaben</h3>
+                        <div class="points-list" id="list-3"></div>
+                    </div>
+                    <div class="meeting-box" id="box-4">
+                        <h3>ℹ️ Infos</h3>
+                        <div class="points-list" id="list-4"></div>
+                    </div>
+                </div>
+            </div>
+
             <div id="tab-docs" class="tab active">
                 <h2>Aktenverwaltung</h2>
                 <div class="card">
@@ -100,6 +142,9 @@
                         <input type="color" id="new-rank-color" value="#3498db" style="height:50px; width:100%; cursor:pointer;">
                     </div>
                     <div style="margin:20px 0; display:grid; grid-template-columns: 1fr 1fr; gap:10px;">
+                        <label><input type="checkbox" id="perm-meeting"> 📢 Besprechung sehen</label>
+                        <label><input type="checkbox" id="perm-meeting-manage"> ✅ Besprechung abhaken</label>
+                        
                         <label><input type="checkbox" id="perm-docs"> 📄 Akten lesen</label>
                         <label><input type="checkbox" id="perm-users"> 👥 Personal verwalten</label>
                         <label><input type="checkbox" id="perm-kick"> 👢 Kicken/Bannen</label>
@@ -112,13 +157,11 @@
                     </div>
                 </div>
 
-                <h3>Hierarchie (Reihenfolge)</h3>
-                <p style="color:#7f8c8d; margin-bottom:20px;">Nutze die Pfeile, um die Wichtigkeit zu ändern. Oben = Wichtig.</p>
+                <h3>Hierarchie</h3>
                 <div id="ranks-list-container" class="grid-list"></div>
             </div>
         </main>
     </div>
-    
-    <script src="client.js?v=9"></script>
+    <script src="client.js?v=11"></script>
 </body>
 </html>

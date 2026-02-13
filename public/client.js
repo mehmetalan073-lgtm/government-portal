@@ -38,10 +38,18 @@ function setupDashboard() {
     document.getElementById('profile-name').innerText = currentUser.fullName;
     document.getElementById('profile-rank').innerText = `${currentUser.rank} (Lvl ${currentUser.level})`;
     document.getElementById('profile-rank').style.backgroundColor = currentUser.color || '#999';
+    
     const p = currentUser.permissions || [];
+    
+    // TAB SICHTBARKEIT
+    if(p.includes('access_meeting')) document.getElementById('nav-meeting').style.display='block';
+    
+    // Ordner Inhalt
     if(p.includes('manage_users')) document.getElementById('nav-users').querySelector('.lock').style.display='none';
     if(p.includes('manage_ranks')) document.getElementById('nav-ranks').querySelector('.lock').style.display='none';
-    switchTab('docs');
+    
+    // Standard Tab: Meeting wenn erlaubt, sonst Docs
+    if(p.includes('access_meeting')) switchTab('meeting'); else switchTab('docs');
 }
 
 function startHeartbeat() {
@@ -51,7 +59,7 @@ function startHeartbeat() {
         const res = await fetch(`${API}/heartbeat`, {method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({username:currentUser.username})});
         const d = await res.json();
         if(d.kicked) { alert(`⚠️ DU WURDEST GEKICKT!\n\nGrund: ${d.reason}`); location.reload(); }
-    }, 2000);
+    }, 10000); // 10s Takt
 }
 
 function toggleAdminMenu() {
@@ -63,82 +71,123 @@ function toggleAdminMenu() {
 
 function switchTab(t) {
     const p = currentUser.permissions||[];
+    if(t==='meeting' && !p.includes('access_meeting')) return;
     if(t==='users' && !p.includes('manage_users')) return;
     if(t==='ranks' && !p.includes('manage_ranks')) return;
+
     document.querySelectorAll('.tab').forEach(e=>e.style.display='none');
     document.getElementById(`tab-${t}`).style.display='block';
+    
     if(t==='users') loadUsers();
     if(t==='ranks') { loadRanks(); cancelRankEdit(); }
     if(t==='docs') loadDocs();
+    if(t==='meeting') loadMeetingPoints();
 }
 
-// --- RÄNGE MIT PFEILEN ---
+// --- MEETING LOGIK (NEU) ---
+async function loadMeetingPoints() {
+    const res = await fetch(`${API}/meeting`);
+    const points = await res.json();
+    
+    // Boxen leeren
+    for(let i=1; i<=4; i++) document.getElementById(`list-${i}`).innerHTML = '';
+
+    const canCheck = currentUser.permissions.includes('manage_meeting') || currentUser.username === 'admin';
+
+    points.forEach(pt => {
+        const div = document.createElement('div');
+        div.className = `meeting-item ${pt.is_done ? 'done' : ''}`;
+        
+        // Checkbox nur für Admins mit Recht
+        let checkboxHTML = '';
+        if(canCheck) {
+            checkboxHTML = `<input type="checkbox" ${pt.is_done ? 'checked' : ''} onclick="toggleMeetingPoint(${pt.id})">`;
+        } else {
+            // Nur Anzeige für andere
+            checkboxHTML = pt.is_done ? '✅ ' : '⬜ ';
+        }
+
+        div.innerHTML = `
+            <div style="display:flex; align-items:flex-start; gap:10px;">
+                <div style="margin-top:2px;">${checkboxHTML}</div>
+                <div>
+                    <span class="content-text">${pt.content}</span><br>
+                    <small style="color:#aaa; font-size:0.75em;">von ${pt.created_by}</small>
+                </div>
+            </div>
+            ${canCheck ? `<button onclick="deleteMeetingPoint(${pt.id})" style="background:none; border:none; color:#e74c3c; cursor:pointer; padding:0;">✖</button>` : ''}
+        `;
+        // Flex für Delete Button
+        div.style.display = "flex";
+        div.style.justifyContent = "space-between";
+
+        const list = document.getElementById(`list-${pt.box_id}`);
+        if(list) list.appendChild(div);
+    });
+}
+
+async function addMeetingPoint() {
+    const txt = document.getElementById('meeting-text').value;
+    const box = document.getElementById('meeting-box-select').value;
+    if(!txt) return;
+
+    await fetch(`${API}/meeting`, {
+        method: 'POST', headers: {'Content-Type':'application/json'},
+        body: JSON.stringify({ content: txt, boxId: box, createdBy: currentUser.username })
+    });
+    document.getElementById('meeting-text').value = '';
+    loadMeetingPoints();
+}
+
+async function toggleMeetingPoint(id) {
+    await fetch(`${API}/meeting/toggle`, {
+        method: 'POST', headers: {'Content-Type':'application/json'},
+        body: JSON.stringify({ id, executedBy: currentUser.username })
+    });
+    loadMeetingPoints();
+}
+
+async function deleteMeetingPoint(id) {
+    if(!confirm("Wirklich löschen?")) return;
+    await fetch(`${API}/meeting/${id}`, {
+        method: 'DELETE', headers: {'Content-Type':'application/json'},
+        body: JSON.stringify({ executedBy: currentUser.username })
+    });
+    loadMeetingPoints();
+}
+
+// --- RÄNGE ---
 async function loadRanks() {
     const res = await fetch(`${API}/ranks`);
     allRanks = await res.json();
     const container = document.getElementById('ranks-list-container');
-    
     container.innerHTML = allRanks.map((r, index) => {
-        // Logik: Darf ich diesen Rang bewegen? (Nur wenn Level > Mein Level)
         const canManage = r.level > currentUser.level || currentUser.rank === 'admin';
-        
         let arrows = '';
         if (canManage) {
-            // Pfeil Hoch (nur wenn nicht erster in der Liste)
             const upBtn = index > 0 ? `<button class="rank-btn" onclick="event.stopPropagation(); moveRank(${index}, -1)">▲</button>` : `<div class="rank-btn" style="opacity:0"></div>`;
-            // Pfeil Runter (nur wenn nicht letzter)
             const downBtn = index < allRanks.length - 1 ? `<button class="rank-btn" onclick="event.stopPropagation(); moveRank(${index}, 1)">▼</button>` : `<div class="rank-btn" style="opacity:0"></div>`;
-            
             arrows = `<div class="rank-actions">${upBtn}${downBtn}</div>`;
         }
-
         const icon = canManage ? '✏️' : '🔒';
         const opacity = canManage ? 1 : 0.6;
         const cursor = canManage ? 'pointer' : 'not-allowed';
 
-        return `
-        <div class="card rank-card" onclick="${canManage ? `editRank('${r.name}')` : ''}" 
-             style="border-left:6px solid ${r.color}; cursor:${cursor}; opacity:${opacity}">
+        return `<div class="card rank-card" onclick="${canManage ? `editRank('${r.name}')` : ''}" style="border-left:6px solid ${r.color}; cursor:${cursor}; opacity:${opacity}">
              <div style="display:flex; justify-content:space-between; align-items:center;">
-                 <div>
-                    <strong style="font-size:1.1em">${r.name}</strong><br>
-                    <small style="color:#7f8c8d">Level ${r.level}</small>
-                 </div>
+                 <div><strong style="font-size:1.1em">${r.name}</strong><br><small style="color:#7f8c8d">Level ${r.level}</small></div>
                  <span style="font-size:1.2em;">${icon}</span>
-             </div>
-             ${arrows}
+             </div>${arrows}
         </div>`;
     }).join('');
 }
-
-// Neue Funktion: Rang verschieben
 async function moveRank(index, direction) {
-    // direction: -1 = hoch, 1 = runter
     const newIndex = index + direction;
     if (newIndex < 0 || newIndex >= allRanks.length) return;
-
-    // Wir tauschen die Positionen im Array visuell
-    const temp = allRanks[index];
-    allRanks[index] = allRanks[newIndex];
-    allRanks[newIndex] = temp;
-
-    // Wir erstellen die neue Namensliste
+    const temp = allRanks[index]; allRanks[index] = allRanks[newIndex]; allRanks[newIndex] = temp;
     const rankNames = allRanks.map(r => r.name);
-
-    // An Server senden
-    const res = await fetch(`${API}/ranks/reorder`, {
-        method: 'POST', 
-        headers: {'Content-Type':'application/json'},
-        body: JSON.stringify({ rankNames, executedBy: currentUser.username })
-    });
-    
-    const d = await res.json();
-    if(d.error) {
-        alert("Fehler: " + d.error);
-        loadRanks(); // Zurücksetzen bei Fehler
-    } else {
-        loadRanks(); // Neu laden (Level Zahlen updaten sich)
-    }
+    const res = await fetch(`${API}/ranks/reorder`, { method: 'POST', headers: {'Content-Type':'application/json'}, body: JSON.stringify({ rankNames, executedBy: currentUser.username }) });
+    if((await res.json()).error) { alert("Fehler"); loadRanks(); } else { loadRanks(); }
 }
 
 function editRank(name) {
@@ -150,30 +199,25 @@ function editRank(name) {
 
     const myPerms = currentUser.permissions;
     const isAdmin = currentUser.username === 'admin';
+    // Checkboxes setup
     setupCheckbox('perm-docs', 'access_docs', r.permissions, myPerms, isAdmin);
     setupCheckbox('perm-users', 'manage_users', r.permissions, myPerms, isAdmin);
     setupCheckbox('perm-kick', 'kick_users', r.permissions, myPerms, isAdmin);
     setupCheckbox('perm-ranks', 'manage_ranks', r.permissions, myPerms, isAdmin);
+    // NEU: Meeting Permissions
+    setupCheckbox('perm-meeting', 'access_meeting', r.permissions, myPerms, isAdmin);
+    setupCheckbox('perm-meeting-manage', 'manage_meeting', r.permissions, myPerms, isAdmin);
 
     document.getElementById('btn-save-rank').innerText = "Änderungen speichern";
     document.getElementById('btn-delete-rank').style.display = "block";
     document.getElementById('btn-cancel-rank').style.display = "block";
-    // Scrollen
     document.getElementById('rank-form-container').scrollIntoView({behavior: 'smooth'});
 }
-
 function setupCheckbox(elmId, permName, rankPerms, myPerms, isAdmin) {
     const cb = document.getElementById(elmId);
     cb.checked = rankPerms.includes(permName);
-    if (!myPerms.includes(permName) && !isAdmin) {
-        cb.disabled = true;
-        cb.parentElement.style.opacity = "0.5";
-    } else {
-        cb.disabled = false;
-        cb.parentElement.style.opacity = "1";
-    }
+    if (!myPerms.includes(permName) && !isAdmin) { cb.disabled = true; cb.parentElement.style.opacity = "0.5"; } else { cb.disabled = false; cb.parentElement.style.opacity = "1"; }
 }
-
 function cancelRankEdit() {
     document.getElementById('new-rank-name').value = '';
     document.getElementById('new-rank-name').disabled = false;
@@ -183,7 +227,6 @@ function cancelRankEdit() {
     document.getElementById('btn-delete-rank').style.display = "none";
     document.getElementById('btn-cancel-rank').style.display = "none";
 }
-
 async function saveRank() {
     const name = document.getElementById('new-rank-name').value;
     const color = document.getElementById('new-rank-color').value;
@@ -192,33 +235,27 @@ async function saveRank() {
     if(document.getElementById('perm-users').checked) p.push('manage_users');
     if(document.getElementById('perm-kick').checked) p.push('kick_users');
     if(document.getElementById('perm-ranks').checked) p.push('manage_ranks');
+    // NEU
+    if(document.getElementById('perm-meeting').checked) p.push('access_meeting');
+    if(document.getElementById('perm-meeting-manage').checked) p.push('manage_meeting');
 
     if(!name) return alert('Name fehlt');
-    const res = await fetch(`${API}/ranks`, {
-        method: 'POST', headers: {'Content-Type':'application/json'},
-        body: JSON.stringify({ name, color, permissions: p, executedBy: currentUser.username })
-    });
-    const d = await res.json();
-    if(d.error) alert(d.error); else { alert('Gespeichert!'); cancelRankEdit(); loadRanks(); }
+    const res = await fetch(`${API}/ranks`, { method: 'POST', headers: {'Content-Type':'application/json'}, body: JSON.stringify({ name, color, permissions: p, executedBy: currentUser.username }) });
+    const d = await res.json(); if(d.error) alert(d.error); else { alert('Gespeichert!'); cancelRankEdit(); loadRanks(); }
 }
-
 async function deleteRankTrigger() {
     const name = document.getElementById('new-rank-name').value;
     if(confirm(`Rang "${name}" löschen?`)) {
         const res = await fetch(`${API}/ranks/${name}`, { method: 'DELETE', headers: {'Content-Type':'application/json'}, body: JSON.stringify({ executedBy: currentUser.username }) });
-        const d = await res.json();
-        if(d.error) alert(d.error); else { alert('Gelöscht'); cancelRankEdit(); loadRanks(); }
+        if((await res.json()).error) alert('Fehler'); else { alert('Gelöscht'); cancelRankEdit(); loadRanks(); }
     }
 }
-
-// REST
 async function loadUsers() { const res = await fetch(`${API}/users`); allUsers = await res.json(); filterUsers(); }
 function filterUsers() {
     const t = document.getElementById('user-search').value.toLowerCase();
     document.getElementById('users-list').innerHTML = allUsers.filter(u=>u.username.includes(t)||u.full_name.toLowerCase().includes(t)).map(u => {
         const o = (new Date()-new Date(u.last_seen))<60000;
-        return `<div class="card user-card" onclick="openModal('${u.username}')" style="display:flex; justify-content:space-between; align-items:center;">
-            <div><strong>${u.full_name}</strong> <small>(${u.username})</small> <div>${o?'🟢 Online':'⚫ Offline'}</div></div> <span class="badge" style="background:${u.color}">${u.rank}</span></div>`;
+        return `<div class="card user-card" onclick="openModal('${u.username}')" style="display:flex; justify-content:space-between; align-items:center;"><div><strong>${u.full_name}</strong> <small>(${u.username})</small> <div>${o?'🟢 Online':'⚫ Offline'}</div></div> <span class="badge" style="background:${u.color}">${u.rank}</span></div>`;
     }).join('');
 }
 async function openModal(un) {
