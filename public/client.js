@@ -90,7 +90,7 @@ async function loadMeetingPoints() {
     const points = await res.json();
     
     // Boxen leeren
-    for(let i=1; i<=4; i++) document.getElementById(`list-${i}`).innerHTML = '';
+    for(let i=1; i<=5; i++) document.getElementById(`list-${i}`).innerHTML = '';
 
     const canCheck = currentUser.permissions.includes('manage_meeting') || currentUser.username === 'admin';
 
