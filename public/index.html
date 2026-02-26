@@ -65,11 +65,11 @@
                     <div style="display:flex; gap:10px;">
                         <input id="meeting-text" placeholder="Neuen Punkt hinzufügen..." style="flex:3;">
                         <select id="meeting-box-select" style="flex:1;">
-                            <option value="1">Narco City Police Department (NCPD)</option>
-                            <option value="2">Narco City Sherrifs Department (NCSD)</option>
-                            <option value="3">Narco City Medical Department (NCMD)</option>
-                            <option value="4">Department of Justice (DOJ)</option>
-                            <option value="5">Federal investigation bureau (FIB)</option>
+                            <option value="1">NCPD</option>
+                            <option value="2">NCSD</option>
+                            <option value="3">NCMD</option>
+                            <option value="5">DOJ</option>
+                            <option value="4">FIB</option>
                         </select>
                         <button onclick="addMeetingPoint()" style="flex:0.5; margin:10px 0;">+</button>
                     </div>
@@ -77,19 +77,23 @@
 
                 <div class="meeting-grid">
                     <div class="meeting-box" id="box-1">
-                        <h3>📌 Themen</h3>
+                        <h3>NCPD</h3>
                         <div class="points-list" id="list-1"></div>
                     </div>
                     <div class="meeting-box" id="box-2">
-                        <h3>⚠️ Wichtig</h3>
+                        <h3>NCSD</h3>
                         <div class="points-list" id="list-2"></div>
                     </div>
                     <div class="meeting-box" id="box-3">
-                        <h3>✅ Aufgaben</h3>
+                        <h3>NCMD</h3>
                         <div class="points-list" id="list-3"></div>
                     </div>
-                    <div class="meeting-box" id="box-4">
-                        <h3>ℹ️ Infos</h3>
+                        <div class="meeting-box" id="box-4">
+                        <h3>FIB</h3>
+                        <div class="points-list" id="list-3"></div>
+                    </div>
+                    <div class="meeting-box" id="box-5">
+                        <h3>DOJ</h3>
                         <div class="points-list" id="list-4"></div>
                     </div>
                 </div>
