@@ -89,6 +89,7 @@ async function loadMeetingPoints() {
     const res = await fetch(`${API}/meeting`);
     const points = await res.json();
     
+    // Boxen leeren
     for(let i=1; i<=5; i++) {
         const list = document.getElementById(`list-${i}`);
         if(list) list.innerHTML = '';
@@ -99,7 +100,6 @@ async function loadMeetingPoints() {
     points.forEach(pt => {
         const div = document.createElement('div');
         
-        // CSS Klasse je nach Status bestimmen (NEU: item-waiting)
         let statusClass = '';
         if (pt.status === 'accepted') statusClass = 'item-accepted';
         else if (pt.status === 'rejected') statusClass = 'item-rejected';
@@ -113,10 +113,8 @@ async function loadMeetingPoints() {
         let actionsHTML = '';
         let infoHTML = `<div style="color:#7f8c8d; font-size:0.75em; margin-top:5px;">📅 Erstellt am ${timeStr} von <strong>${pt.created_by}</strong></div>`;
 
-        // Wenn "pending" oder "waiting", zeige die Aktions-Buttons an
+        // 1. STATUS: OFFEN ODER WARTEND
         if (pt.status === 'pending' || !pt.status || pt.status === 'waiting') {
-            
-            // Wenn es schon auf "Warten" steht, zeige den Grund an
             if (pt.status === 'waiting') {
                 infoHTML += `
                 <div style="color:#d35400; font-size:0.85em; margin-top:5px; padding:5px; background:rgba(243,156,18,0.1); border-radius:5px;">
@@ -126,10 +124,10 @@ async function loadMeetingPoints() {
             }
 
             if (canManage) {
-                // Wenn es schon wartet, blenden wir den "Warten" Button aus, um Platz zu sparen
+                // Wenn es wartet, zeige "Zurücksetzen" statt "Warten"
                 const waitingBtn = pt.status !== 'waiting' 
                     ? `<button onclick="manageMeetingPoint(${pt.id}, 'waiting')" class="meeting-btn" style="background:#f39c12; color:white; border:none;">⏳ Warten</button>` 
-                    : '';
+                    : `<button onclick="manageMeetingPoint(${pt.id}, 'pending')" class="meeting-btn" style="background:#3498db; color:white; border:none;">↩️ Zurücksetzen</button>`;
 
                 actionsHTML = `
                     <div style="display:flex; gap:8px; margin-top:12px;">
@@ -140,16 +138,36 @@ async function loadMeetingPoints() {
                     </div>
                 `;
             }
-        } else if (pt.status === 'accepted') {
+        } 
+        // 2. STATUS: ANGENOMMEN
+        else if (pt.status === 'accepted') {
             infoHTML += `<div style="color:#27ae60; font-size:0.85em; margin-top:5px; font-weight:bold;">✅ Angenommen von ${pt.managed_by}</div>`;
-            if(canManage) actionsHTML = `<button onclick="deleteMeetingPoint(${pt.id})" class="meeting-btn btn-delete" style="margin-top:8px; border:none;">🗑️ Löschen</button>`;
-        } else if (pt.status === 'rejected') {
+            if(canManage) {
+                // NEU: Zurücksetzen Button hinzugefügt
+                actionsHTML = `
+                    <div style="display:flex; gap:8px; margin-top:8px;">
+                        <button onclick="manageMeetingPoint(${pt.id}, 'pending')" class="meeting-btn" style="background:#3498db; color:white; border:none;">↩️ Zurücksetzen</button>
+                        <button onclick="deleteMeetingPoint(${pt.id})" class="meeting-btn btn-delete" style="border:none;">🗑️ Löschen</button>
+                    </div>
+                `;
+            }
+        } 
+        // 3. STATUS: ABGELEHNT
+        else if (pt.status === 'rejected') {
             infoHTML += `
                 <div style="color:#c0392b; font-size:0.85em; margin-top:5px; padding:5px; background:rgba(231,76,60,0.1); border-radius:5px;">
                     <strong>❌ Abgelehnt von ${pt.managed_by}</strong><br>
                     Grund: ${pt.reason}
                 </div>`;
-            if(canManage) actionsHTML = `<button onclick="deleteMeetingPoint(${pt.id})" class="meeting-btn btn-delete" style="margin-top:8px; border:none;">🗑️ Löschen</button>`;
+            if(canManage) {
+                // NEU: Zurücksetzen Button hinzugefügt
+                actionsHTML = `
+                    <div style="display:flex; gap:8px; margin-top:8px;">
+                        <button onclick="manageMeetingPoint(${pt.id}, 'pending')" class="meeting-btn" style="background:#3498db; color:white; border:none;">↩️ Zurücksetzen</button>
+                        <button onclick="deleteMeetingPoint(${pt.id})" class="meeting-btn btn-delete" style="border:none;">🗑️ Löschen</button>
+                    </div>
+                `;
+            }
         }
 
         div.innerHTML = `
@@ -162,6 +180,7 @@ async function loadMeetingPoints() {
         if(list) list.appendChild(div);
     });
 }
+
 async function addMeetingPoint() {
     const txt = document.getElementById('meeting-text').value;
     const box = document.getElementById('meeting-box-select').value;
@@ -180,13 +199,14 @@ async function manageMeetingPoint(id, status) {
     
     if (status === 'rejected') {
         reason = prompt("Bitte gib einen Grund für die Ablehnung ein:");
-        if (reason === null) return; // Abbruch, wenn man auf 'Abbrechen' klickt
+        if (reason === null) return; 
         if (reason.trim() === '') reason = "Kein Grund angegeben"; 
     } else if (status === 'waiting') {
         reason = prompt("Warum wird dieser Punkt zurückgestellt / gewartet?");
-        if (reason === null) return; // Abbruch
+        if (reason === null) return; 
         if (reason.trim() === '') reason = "Wartet auf weitere Informationen"; 
-    }
+    } 
+    // Wenn status === 'pending' (Zurücksetzen) wird kein Grund benötigt.
 
     await fetch(`${API}/meeting/manage`, {
         method: 'POST', headers: {'Content-Type':'application/json'},
