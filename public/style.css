@@ -290,3 +290,9 @@ h2 { margin-top: 0; margin-bottom: 20px; font-size: 1.8em; color: var(--text-col
     overflow-wrap: anywhere;
     white-space: pre-wrap;
 }
+
+/* NEU: Gelber Rahmen für Warten/Zurückgestellt */
+.meeting-item.item-waiting {
+    border-left-color: #f1c40f;
+    background: #fdfbf2;
+}

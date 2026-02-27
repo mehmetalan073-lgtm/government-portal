@@ -98,36 +98,58 @@ async function loadMeetingPoints() {
 
     points.forEach(pt => {
         const div = document.createElement('div');
-        const statusClass = pt.status === 'accepted' ? 'item-accepted' : (pt.status === 'rejected' ? 'item-rejected' : '');
+        
+        // CSS Klasse je nach Status bestimmen (NEU: item-waiting)
+        let statusClass = '';
+        if (pt.status === 'accepted') statusClass = 'item-accepted';
+        else if (pt.status === 'rejected') statusClass = 'item-rejected';
+        else if (pt.status === 'waiting') statusClass = 'item-waiting';
+
         div.className = `meeting-item ${statusClass}`;
         
-        // Datum und Uhrzeit
         const dateObj = new Date(pt.created_at);
         const timeStr = dateObj.toLocaleDateString('de-DE') + ' um ' + dateObj.toLocaleTimeString('de-DE', {hour: '2-digit', minute:'2-digit'});
 
         let actionsHTML = '';
         let infoHTML = `<div style="color:#7f8c8d; font-size:0.75em; margin-top:5px;">📅 Erstellt am ${timeStr} von <strong>${pt.created_by}</strong></div>`;
 
-        if (pt.status === 'pending' || !pt.status) {
+        // Wenn "pending" oder "waiting", zeige die Aktions-Buttons an
+        if (pt.status === 'pending' || !pt.status || pt.status === 'waiting') {
+            
+            // Wenn es schon auf "Warten" steht, zeige den Grund an
+            if (pt.status === 'waiting') {
+                infoHTML += `
+                <div style="color:#d35400; font-size:0.85em; margin-top:5px; padding:5px; background:rgba(243,156,18,0.1); border-radius:5px;">
+                    <strong>⏳ Zurückgestellt von ${pt.managed_by}</strong><br>
+                    Grund: ${pt.reason}
+                </div>`;
+            }
+
             if (canManage) {
+                // Wenn es schon wartet, blenden wir den "Warten" Button aus, um Platz zu sparen
+                const waitingBtn = pt.status !== 'waiting' 
+                    ? `<button onclick="manageMeetingPoint(${pt.id}, 'waiting')" class="meeting-btn" style="background:#f39c12; color:white; border:none;">⏳ Warten</button>` 
+                    : '';
+
                 actionsHTML = `
                     <div style="display:flex; gap:8px; margin-top:12px;">
-                        <button onclick="manageMeetingPoint(${pt.id}, 'accepted')" class="meeting-btn" style="background:#27ae60;">✅ Annehmen</button>
-                        <button onclick="manageMeetingPoint(${pt.id}, 'rejected')" class="meeting-btn" style="background:#e74c3c;">❌ Ablehnen</button>
-                        <button onclick="deleteMeetingPoint(${pt.id})" class="meeting-btn btn-delete">🗑️</button>
+                        <button onclick="manageMeetingPoint(${pt.id}, 'accepted')" class="meeting-btn" style="background:#27ae60; color:white; border:none;">✅ Annehmen</button>
+                        ${waitingBtn}
+                        <button onclick="manageMeetingPoint(${pt.id}, 'rejected')" class="meeting-btn" style="background:#e74c3c; color:white; border:none;">❌ Ablehnen</button>
+                        <button onclick="deleteMeetingPoint(${pt.id})" class="meeting-btn btn-delete" style="border:none;">🗑️</button>
                     </div>
                 `;
             }
         } else if (pt.status === 'accepted') {
             infoHTML += `<div style="color:#27ae60; font-size:0.85em; margin-top:5px; font-weight:bold;">✅ Angenommen von ${pt.managed_by}</div>`;
-            if(canManage) actionsHTML = `<button onclick="deleteMeetingPoint(${pt.id})" class="meeting-btn btn-delete" style="margin-top:8px;">🗑️ Löschen</button>`;
+            if(canManage) actionsHTML = `<button onclick="deleteMeetingPoint(${pt.id})" class="meeting-btn btn-delete" style="margin-top:8px; border:none;">🗑️ Löschen</button>`;
         } else if (pt.status === 'rejected') {
             infoHTML += `
                 <div style="color:#c0392b; font-size:0.85em; margin-top:5px; padding:5px; background:rgba(231,76,60,0.1); border-radius:5px;">
                     <strong>❌ Abgelehnt von ${pt.managed_by}</strong><br>
                     Grund: ${pt.reason}
                 </div>`;
-            if(canManage) actionsHTML = `<button onclick="deleteMeetingPoint(${pt.id})" class="meeting-btn btn-delete" style="margin-top:8px;">🗑️ Löschen</button>`;
+            if(canManage) actionsHTML = `<button onclick="deleteMeetingPoint(${pt.id})" class="meeting-btn btn-delete" style="margin-top:8px; border:none;">🗑️ Löschen</button>`;
         }
 
         div.innerHTML = `
@@ -139,7 +161,6 @@ async function loadMeetingPoints() {
         const list = document.getElementById(`list-${pt.box_id}`);
         if(list) list.appendChild(div);
     });
-}
 
 async function addMeetingPoint() {
     const txt = document.getElementById('meeting-text').value;
@@ -156,10 +177,15 @@ async function addMeetingPoint() {
 
 async function manageMeetingPoint(id, status) {
     let reason = '';
+    
     if (status === 'rejected') {
         reason = prompt("Bitte gib einen Grund für die Ablehnung ein:");
-        if (reason === null) return; // Abbruch
+        if (reason === null) return; // Abbruch, wenn man auf 'Abbrechen' klickt
         if (reason.trim() === '') reason = "Kein Grund angegeben"; 
+    } else if (status === 'waiting') {
+        reason = prompt("Warum wird dieser Punkt zurückgestellt / gewartet?");
+        if (reason === null) return; // Abbruch
+        if (reason.trim() === '') reason = "Wartet auf weitere Informationen"; 
     }
 
     await fetch(`${API}/meeting/manage`, {
