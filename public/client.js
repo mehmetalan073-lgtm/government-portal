@@ -161,7 +161,7 @@ async function loadMeetingPoints() {
         const list = document.getElementById(`list-${pt.box_id}`);
         if(list) list.appendChild(div);
     });
-
+}
 async function addMeetingPoint() {
     const txt = document.getElementById('meeting-text').value;
     const box = document.getElementById('meeting-box-select').value;
