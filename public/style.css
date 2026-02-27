@@ -261,7 +261,16 @@ h2 { margin-top: 0; margin-bottom: 20px; font-size: 1.8em; color: var(--text-col
     transition: 0.2s;
 }
 
-.meeting-item.done .content-text {
-    text-decoration: line-through;
-    color: #aaa;
+.meeting-item {
+    border-left: 4px solid #bdc3c7; /* Grau für wartend */
+}
+
+.meeting-item.item-accepted {
+    border-left-color: #27ae60;
+    background: #f0fdf4;
+}
+
+.meeting-item.item-rejected {
+    border-left-color: #e74c3c;
+    background: #fdf2f2;
 }

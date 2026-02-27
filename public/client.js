@@ -89,37 +89,52 @@ async function loadMeetingPoints() {
     const res = await fetch(`${API}/meeting`);
     const points = await res.json();
     
-    // Boxen leeren
-    for(let i=1; i<=5; i++) document.getElementById(`list-${i}`).innerHTML = '';
+    for(let i=1; i<=5; i++) {
+        const list = document.getElementById(`list-${i}`);
+        if(list) list.innerHTML = '';
+    }
 
-    const canCheck = currentUser.permissions.includes('manage_meeting') || currentUser.username === 'admin';
+    const canManage = currentUser.permissions.includes('manage_meeting') || currentUser.username === 'admin';
 
     points.forEach(pt => {
         const div = document.createElement('div');
-        div.className = `meeting-item ${pt.is_done ? 'done' : ''}`;
+        const statusClass = pt.status === 'accepted' ? 'item-accepted' : (pt.status === 'rejected' ? 'item-rejected' : '');
+        div.className = `meeting-item ${statusClass}`;
         
-        // Checkbox nur für Admins mit Recht
-        let checkboxHTML = '';
-        if(canCheck) {
-            checkboxHTML = `<input type="checkbox" ${pt.is_done ? 'checked' : ''} onclick="toggleMeetingPoint(${pt.id})">`;
-        } else {
-            // Nur Anzeige für andere
-            checkboxHTML = pt.is_done ? '✅ ' : '⬜ ';
+        // Datum und Uhrzeit
+        const dateObj = new Date(pt.created_at);
+        const timeStr = dateObj.toLocaleDateString('de-DE') + ' um ' + dateObj.toLocaleTimeString('de-DE', {hour: '2-digit', minute:'2-digit'});
+
+        let actionsHTML = '';
+        let infoHTML = `<div style="color:#7f8c8d; font-size:0.75em; margin-top:5px;">📅 Erstellt am ${timeStr} von <strong>${pt.created_by}</strong></div>`;
+
+        if (pt.status === 'pending' || !pt.status) {
+            if (canManage) {
+                actionsHTML = `
+                    <div style="display:flex; gap:5px; margin-top:10px;">
+                        <button onclick="manageMeetingPoint(${pt.id}, 'accepted')" style="background:#27ae60; padding:5px; font-size:0.85em; flex:1;">✅ Annehmen</button>
+                        <button onclick="manageMeetingPoint(${pt.id}, 'rejected')" style="background:#e74c3c; padding:5px; font-size:0.85em; flex:1;">❌ Ablehnen</button>
+                        <button onclick="deleteMeetingPoint(${pt.id})" style="background:#95a5a6; padding:5px; font-size:0.85em;">🗑️</button>
+                    </div>
+                `;
+            }
+        } else if (pt.status === 'accepted') {
+            infoHTML += `<div style="color:#27ae60; font-size:0.85em; margin-top:5px; font-weight:bold;">✅ Angenommen von ${pt.managed_by}</div>`;
+            if(canManage) actionsHTML = `<button onclick="deleteMeetingPoint(${pt.id})" style="background:none; border:none; color:#e74c3c; cursor:pointer; font-size:0.8em; margin-top:5px; padding:0;">Löschen</button>`;
+        } else if (pt.status === 'rejected') {
+            infoHTML += `
+                <div style="color:#c0392b; font-size:0.85em; margin-top:5px; padding:5px; background:rgba(231,76,60,0.1); border-radius:5px;">
+                    <strong>❌ Abgelehnt von ${pt.managed_by}</strong><br>
+                    Grund: ${pt.reason}
+                </div>`;
+            if(canManage) actionsHTML = `<button onclick="deleteMeetingPoint(${pt.id})" style="background:none; border:none; color:#e74c3c; cursor:pointer; font-size:0.8em; margin-top:5px; padding:0;">Löschen</button>`;
         }
 
         div.innerHTML = `
-            <div style="display:flex; align-items:flex-start; gap:10px;">
-                <div style="margin-top:2px;">${checkboxHTML}</div>
-                <div>
-                    <span class="content-text">${pt.content}</span><br>
-                    <small style="color:#aaa; font-size:0.75em;">von ${pt.created_by}</small>
-                </div>
-            </div>
-            ${canCheck ? `<button onclick="deleteMeetingPoint(${pt.id})" style="background:none; border:none; color:#e74c3c; cursor:pointer; padding:0;">✖</button>` : ''}
+            <div class="content-text" style="font-size:1.05em; font-weight:bold; color:#2c3e50;">${pt.content}</div>
+            ${infoHTML}
+            ${actionsHTML}
         `;
-        // Flex für Delete Button
-        div.style.display = "flex";
-        div.style.justifyContent = "space-between";
 
         const list = document.getElementById(`list-${pt.box_id}`);
         if(list) list.appendChild(div);
@@ -139,10 +154,17 @@ async function addMeetingPoint() {
     loadMeetingPoints();
 }
 
-async function toggleMeetingPoint(id) {
-    await fetch(`${API}/meeting/toggle`, {
+async function manageMeetingPoint(id, status) {
+    let reason = '';
+    if (status === 'rejected') {
+        reason = prompt("Bitte gib einen Grund für die Ablehnung ein:");
+        if (reason === null) return; // Abbruch
+        if (reason.trim() === '') reason = "Kein Grund angegeben"; 
+    }
+
+    await fetch(`${API}/meeting/manage`, {
         method: 'POST', headers: {'Content-Type':'application/json'},
-        body: JSON.stringify({ id, executedBy: currentUser.username })
+        body: JSON.stringify({ id, executedBy: currentUser.username, status, reason })
     });
     loadMeetingPoints();
 }

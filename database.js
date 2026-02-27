@@ -35,6 +35,10 @@ async function initDB() {
             created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
         );`);
 
+        // NEUE SPALTEN FÜR ANNEHMEN/ABLEHNEN
+        await client.query("ALTER TABLE meeting_points ADD COLUMN IF NOT EXISTS status TEXT DEFAULT 'pending'");
+        await client.query("ALTER TABLE meeting_points ADD COLUMN IF NOT EXISTS managed_by TEXT");
+        await client.query("ALTER TABLE meeting_points ADD COLUMN IF NOT EXISTS reason TEXT");
         // Spalten sicherstellen (falls DB schon existiert)
         await client.query("ALTER TABLE ranks ADD COLUMN IF NOT EXISTS level INTEGER DEFAULT 99");
 

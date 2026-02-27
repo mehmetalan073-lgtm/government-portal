@@ -47,21 +47,22 @@ router.get('/meeting', async (req, res) => {
 
 router.post('/meeting', async (req, res) => {
     const { content, boxId, createdBy } = req.body;
-    await pool.query('INSERT INTO meeting_points (content, box_id, created_by) VALUES ($1, $2, $3)', [content, boxId, createdBy]);
+    await pool.query('INSERT INTO meeting_points (content, box_id, created_by, status) VALUES ($1, $2, $3, $4)', [content, boxId, createdBy, 'pending']);
     res.json({ success: true });
 });
 
-router.post('/meeting/toggle', async (req, res) => {
-    const { id, executedBy } = req.body;
+router.post('/meeting/manage', async (req, res) => {
+    const { id, executedBy, status, reason } = req.body;
     const user = await getExecutorData(executedBy);
     
-    // Prüfen: Darf er abhaken?
     if (!user || (!user.permissions.includes('manage_meeting') && user.username !== 'admin')) {
-        return res.status(403).json({ error: 'Keine Berechtigung zum Abhaken.' });
+        return res.status(403).json({ error: 'Keine Berechtigung.' });
     }
 
-    // Status umkehren (An/Aus)
-    await pool.query('UPDATE meeting_points SET is_done = NOT is_done WHERE id = $1', [id]);
+    await pool.query(
+        'UPDATE meeting_points SET status = $1, managed_by = $2, reason = $3 WHERE id = $4', 
+        [status, executedBy, reason || null, id]
+    );
     res.json({ success: true });
 });
 
