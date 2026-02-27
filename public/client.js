@@ -111,23 +111,23 @@ async function loadMeetingPoints() {
         if (pt.status === 'pending' || !pt.status) {
             if (canManage) {
                 actionsHTML = `
-                    <div style="display:flex; gap:5px; margin-top:10px;">
-                        <button onclick="manageMeetingPoint(${pt.id}, 'accepted')" style="background:#27ae60; padding:5px; font-size:0.85em; flex:1;">✅ Annehmen</button>
-                        <button onclick="manageMeetingPoint(${pt.id}, 'rejected')" style="background:#e74c3c; padding:5px; font-size:0.85em; flex:1;">❌ Ablehnen</button>
-                        <button onclick="deleteMeetingPoint(${pt.id})" style="background:#95a5a6; padding:5px; font-size:0.85em;">🗑️</button>
+                    <div style="display:flex; gap:8px; margin-top:12px;">
+                        <button onclick="manageMeetingPoint(${pt.id}, 'accepted')" class="meeting-btn" style="background:#27ae60;">✅ Annehmen</button>
+                        <button onclick="manageMeetingPoint(${pt.id}, 'rejected')" class="meeting-btn" style="background:#e74c3c;">❌ Ablehnen</button>
+                        <button onclick="deleteMeetingPoint(${pt.id})" class="meeting-btn btn-delete">🗑️</button>
                     </div>
                 `;
             }
         } else if (pt.status === 'accepted') {
             infoHTML += `<div style="color:#27ae60; font-size:0.85em; margin-top:5px; font-weight:bold;">✅ Angenommen von ${pt.managed_by}</div>`;
-            if(canManage) actionsHTML = `<button onclick="deleteMeetingPoint(${pt.id})" style="background:none; border:none; color:#e74c3c; cursor:pointer; font-size:0.8em; margin-top:5px; padding:0;">Löschen</button>`;
+            if(canManage) actionsHTML = `<button onclick="deleteMeetingPoint(${pt.id})" class="meeting-btn btn-delete" style="margin-top:8px;">🗑️ Löschen</button>`;
         } else if (pt.status === 'rejected') {
             infoHTML += `
                 <div style="color:#c0392b; font-size:0.85em; margin-top:5px; padding:5px; background:rgba(231,76,60,0.1); border-radius:5px;">
                     <strong>❌ Abgelehnt von ${pt.managed_by}</strong><br>
                     Grund: ${pt.reason}
                 </div>`;
-            if(canManage) actionsHTML = `<button onclick="deleteMeetingPoint(${pt.id})" style="background:none; border:none; color:#e74c3c; cursor:pointer; font-size:0.8em; margin-top:5px; padding:0;">Löschen</button>`;
+            if(canManage) actionsHTML = `<button onclick="deleteMeetingPoint(${pt.id})" class="meeting-btn btn-delete" style="margin-top:8px;">🗑️ Löschen</button>`;
         }
 
         div.innerHTML = `
