@@ -96,6 +96,10 @@ async function loadMeetingPoints() {
     }
 
     const canManage = currentUser.permissions.includes('manage_meeting') || currentUser.username === 'admin';
+    // Button ein/ausblenden
+    if(document.getElementById('btn-delete-all-meeting')) {
+        document.getElementById('btn-delete-all-meeting').style.display = canManage ? 'block' : 'none';
+    }
 
     points.forEach(pt => {
         const div = document.createElement('div');
@@ -222,6 +226,24 @@ async function deleteMeetingPoint(id) {
         body: JSON.stringify({ executedBy: currentUser.username })
     });
     loadMeetingPoints();
+}
+
+async function deleteAllMeetingPoints() {
+    const confirmation = prompt("⚠️ WARNUNG: Du bist dabei, das KOMPLETTE Board zu leeren!\nBitte tippe 'LÖSCHEN' (alles großgeschrieben) ein, um zu bestätigen:");
+    
+    if (confirmation !== "LÖSCHEN") {
+        if (confirmation !== null) alert("Falsche Eingabe. Vorgang abgebrochen.");
+        return; // Bricht ab, wenn falsch oder auf "Abbrechen" geklickt wurde
+    }
+
+    await fetch(`${API}/meeting/all`, {
+        method: 'DELETE', 
+        headers: {'Content-Type':'application/json'},
+        body: JSON.stringify({ executedBy: currentUser.username })
+    });
+    
+    alert("Das Board wurde komplett geleert.");
+    loadMeetingPoints(); // Lädt das nun leere Board neu
 }
 
 // --- RÄNGE ---

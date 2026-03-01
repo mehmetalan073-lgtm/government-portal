@@ -59,7 +59,10 @@
         <main class="content">
             
             <div id="tab-meeting" class="tab" style="display:none;">
-                <h2>Führungsebenen Besprechung</h2>
+                <div style="display:flex; justify-content:space-between; align-items:center;">
+                    <h2>Führungsebenen Besprechung</h2>
+                    <button id="btn-delete-all-meeting" onclick="deleteAllMeetingPoints()" class="btn-danger" style="width:auto; padding:10px 20px; display:none; border:none; border-radius:8px;">⚠️ Board leeren</button>
+                </div>
                 
                 <div class="card" style="border-top: 5px solid #f1c40f;">
                     <div style="display:flex; gap:10px;">

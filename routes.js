@@ -80,6 +80,20 @@ router.delete('/meeting/:id', async (req, res) => {
     res.json({ success: true });
 });
 
+// NEU: ALLES LÖSCHEN
+router.delete('/meeting/all', async (req, res) => {
+    const { executedBy } = req.body;
+    const user = await getExecutorData(executedBy); 
+    
+    if (!user || (!user.permissions.includes('manage_meeting') && user.username !== 'admin')) {
+         return res.status(403).json({ error: 'Keine Berechtigung.' });
+    }
+    
+    // Löscht die gesamte Tabelle meeting_points
+    await pool.query('DELETE FROM meeting_points');
+    res.json({ success: true });
+});
+
 // --- RÄNGE ---
 router.get('/ranks', async (req, res) => {
     const result = await pool.query('SELECT * FROM ranks ORDER BY level ASC'); 
