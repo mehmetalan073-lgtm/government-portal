@@ -90,21 +90,23 @@ function switchTab(t) {
 }
 
 // --- MEETING LOGIK (NEU) ---
+// --- MEETING LOGIK (NEU & KUGELSICHER) ---
 async function loadMeetingPoints() {
     const res = await fetch(`${API}/meeting`);
     const points = await res.json();
     
-    // Boxen leeren
     for(let i=1; i<=5; i++) {
         const list = document.getElementById(`list-${i}`);
         if(list) list.innerHTML = '';
     }
 
     const canManage = currentUser.permissions.includes('manage_meeting') || currentUser.username === 'admin';
-    // Button ein/ausblenden
     if(document.getElementById('btn-delete-all-meeting')) {
         document.getElementById('btn-delete-all-meeting').style.display = canManage ? 'block' : 'none';
     }
+
+    // BULLETPROOF DESIGN FÜR BUTTONS (Überschreibt alle alten CSS-Fehler)
+    const btnStyle = "margin:0; padding:8px 6px; border:none; border-radius:6px; color:white; font-size:0.85em; cursor:pointer; width:auto; white-space:nowrap;";
 
     points.forEach(pt => {
         const div = document.createElement('div');
@@ -122,7 +124,6 @@ async function loadMeetingPoints() {
         let actionsHTML = '';
         let infoHTML = `<div style="color:#7f8c8d; font-size:0.75em; margin-top:5px;">📅 Erstellt am ${timeStr} von <strong>${pt.created_by}</strong></div>`;
 
-        // 1. STATUS: OFFEN ODER WARTEND
         if (pt.status === 'pending' || !pt.status || pt.status === 'waiting') {
             if (pt.status === 'waiting') {
                 infoHTML += `
@@ -133,35 +134,31 @@ async function loadMeetingPoints() {
             }
 
             if (canManage) {
-                // Wenn es wartet, zeige "Zurücksetzen" statt "Warten"
                 const waitingBtn = pt.status !== 'waiting' 
-                    ? `<button onclick="manageMeetingPoint(${pt.id}, 'waiting')" class="meeting-btn" style="background:#f39c12; color:white; border:none;">⏳ Warten</button>` 
-                    : `<button onclick="manageMeetingPoint(${pt.id}, 'pending')" class="meeting-btn" style="background:#3498db; color:white; border:none;">↩️ Zurücksetzen</button>`;
+                    ? `<button onclick="manageMeetingPoint(${pt.id}, 'waiting')" style="${btnStyle} background:#f39c12; flex:1;">⏳ Warten</button>` 
+                    : `<button onclick="manageMeetingPoint(${pt.id}, 'pending')" style="${btnStyle} background:#3498db; flex:1;">↩️ Zurück</button>`;
 
                 actionsHTML = `
-                    <div style="display:flex; gap:8px; margin-top:12px;">
-                        <button onclick="manageMeetingPoint(${pt.id}, 'accepted')" class="meeting-btn" style="background:#27ae60; color:white; border:none;">✅ Annehmen</button>
+                    <div style="display:flex; gap:6px; margin-top:12px; flex-wrap:wrap;">
+                        <button onclick="manageMeetingPoint(${pt.id}, 'accepted')" style="${btnStyle} background:#27ae60; flex:1;">✅ Annehmen</button>
                         ${waitingBtn}
-                        <button onclick="manageMeetingPoint(${pt.id}, 'rejected')" class="meeting-btn" style="background:#e74c3c; color:white; border:none;">❌ Ablehnen</button>
-                        <button onclick="deleteMeetingPoint(${pt.id})" class="meeting-btn btn-delete" style="border:none;">🗑️</button>
+                        <button onclick="manageMeetingPoint(${pt.id}, 'rejected')" style="${btnStyle} background:#e74c3c; flex:1;">❌ Ablehnen</button>
+                        <button onclick="deleteMeetingPoint(${pt.id})" style="${btnStyle} background:#95a5a6; flex:0 0 auto;">🗑️</button>
                     </div>
                 `;
             }
         } 
-        // 2. STATUS: ANGENOMMEN
         else if (pt.status === 'accepted') {
             infoHTML += `<div style="color:#27ae60; font-size:0.85em; margin-top:5px; font-weight:bold;">✅ Angenommen von ${pt.managed_by}</div>`;
             if(canManage) {
-                // NEU: Zurücksetzen Button hinzugefügt
                 actionsHTML = `
-                    <div style="display:flex; gap:8px; margin-top:8px;">
-                        <button onclick="manageMeetingPoint(${pt.id}, 'pending')" class="meeting-btn" style="background:#3498db; color:white; border:none;">↩️ Zurücksetzen</button>
-                        <button onclick="deleteMeetingPoint(${pt.id})" class="meeting-btn btn-delete" style="border:none;">🗑️ Löschen</button>
+                    <div style="display:flex; gap:6px; margin-top:10px;">
+                        <button onclick="manageMeetingPoint(${pt.id}, 'pending')" style="${btnStyle} background:#3498db; flex:0 0 auto;">↩️ Zurücksetzen</button>
+                        <button onclick="deleteMeetingPoint(${pt.id})" style="${btnStyle} background:#95a5a6; flex:0 0 auto;">🗑️ Löschen</button>
                     </div>
                 `;
             }
         } 
-        // 3. STATUS: ABGELEHNT
         else if (pt.status === 'rejected') {
             infoHTML += `
                 <div style="color:#c0392b; font-size:0.85em; margin-top:5px; padding:5px; background:rgba(231,76,60,0.1); border-radius:5px;">
@@ -169,11 +166,10 @@ async function loadMeetingPoints() {
                     Grund: ${pt.reason}
                 </div>`;
             if(canManage) {
-                // NEU: Zurücksetzen Button hinzugefügt
                 actionsHTML = `
-                    <div style="display:flex; gap:8px; margin-top:8px;">
-                        <button onclick="manageMeetingPoint(${pt.id}, 'pending')" class="meeting-btn" style="background:#3498db; color:white; border:none;">↩️ Zurücksetzen</button>
-                        <button onclick="deleteMeetingPoint(${pt.id})" class="meeting-btn btn-delete" style="border:none;">🗑️ Löschen</button>
+                    <div style="display:flex; gap:6px; margin-top:10px;">
+                        <button onclick="manageMeetingPoint(${pt.id}, 'pending')" style="${btnStyle} background:#3498db; flex:0 0 auto;">↩️ Zurücksetzen</button>
+                        <button onclick="deleteMeetingPoint(${pt.id})" style="${btnStyle} background:#95a5a6; flex:0 0 auto;">🗑️ Löschen</button>
                     </div>
                 `;
             }
