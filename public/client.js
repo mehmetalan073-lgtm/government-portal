@@ -44,6 +44,11 @@ function setupDashboard() {
     // TAB SICHTBARKEIT
     if(p.includes('access_meeting')) document.getElementById('nav-meeting').style.display='block';
     
+    // Erstellen-Button nur für Leute mit Akten-Recht
+    if(p.includes('access_docs') || currentUser.username === 'admin') {
+        document.getElementById('btn-create-form').style.display = 'block';
+    }
+
     // Ordner Inhalt
     if(p.includes('manage_users')) document.getElementById('nav-users').querySelector('.lock').style.display='none';
     if(p.includes('manage_ranks')) document.getElementById('nav-ranks').querySelector('.lock').style.display='none';
@@ -80,7 +85,7 @@ function switchTab(t) {
     
     if(t==='users') loadUsers();
     if(t==='ranks') { loadRanks(); cancelRankEdit(); }
-    if(t==='docs') loadDocs();
+    if(t==='docs') loadForms();
     if(t==='meeting') loadMeetingPoints();
 }
 
@@ -368,10 +373,185 @@ async function kickUser() {
     alert('Ausgeführt'); closeModal(); loadUsers();
 }
 async function saveUserRank() { await fetch(`${API}/users/rank`, {method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({username:selectedUser.username,newRank:document.getElementById('modal-rank-select').value})}); alert('Gespeichert'); closeModal(); loadUsers(); }
-async function loadDocs() { const d = await (await fetch(`${API}/documents`)).json(); document.getElementById('docs-list').innerHTML=d.map(x=>`<div class="card"><h3>${x.title}</h3><p>${x.content}</p><small>${x.created_by}</small></div>`).join(''); }
-async function createDoc() { await fetch(`${API}/documents`, {method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({title:document.getElementById('doc-title').value,content:document.getElementById('doc-content').value,createdBy:currentUser.username})}); loadDocs(); }
 function closeModal(){document.getElementById('user-modal').style.display='none'}
 function showRegister(){document.getElementById('login-screen').style.display='none';document.getElementById('register-screen').style.display='flex'}
 function showLogin(){document.getElementById('register-screen').style.display='none';document.getElementById('login-screen').style.display='flex'}
 async function register(){ const res = await fetch(`${API}/register`,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({username:document.getElementById('reg-user').value,fullName:document.getElementById('reg-name').value,password:document.getElementById('reg-pass').value})}); if(res.ok){alert('Registriert');showLogin()} }
 function logout(){location.reload()}
+
+// --- FRAGEBÖGEN & PDF GENERATOR ---
+let allForms = [];
+let currentFillingForm = null;
+
+async function loadForms() {
+    const res = await fetch(`${API}/forms`);
+    allForms = await res.json();
+    
+    document.getElementById('forms-list').style.display = 'grid';
+    document.getElementById('form-fill-container').style.display = 'none';
+    document.getElementById('form-create-container').style.display = 'none';
+
+    document.getElementById('forms-list').innerHTML = allForms.map(f => `
+        <div class="card" onclick="openForm(${f.id})" style="cursor:pointer; border-left:4px solid #3498db;">
+            <h3 style="margin-top:0;">${f.title}</h3>
+            <small style="color:#7f8c8d;">Erstellt von ${f.created_by}</small><br>
+            <small>Enthält ${f.fields.length} Fragen</small>
+        </div>
+    `).join('');
+}
+
+function showCreateForm() {
+    document.getElementById('forms-list').style.display = 'none';
+    document.getElementById('form-create-container').style.display = 'block';
+    document.getElementById('form-fields-builder').innerHTML = ''; 
+    document.getElementById('form-title').value = '';
+    document.getElementById('form-template').value = '';
+    document.getElementById('docx-upload').value = '';
+    document.getElementById('upload-success').style.display = 'none';
+    addFormField(); 
+}
+
+function cancelCreateForm() { loadForms(); }
+
+function addFormField() {
+    const container = document.getElementById('form-fields-builder');
+    const fieldCount = container.children.length + 1;
+    const div = document.createElement('div');
+    div.className = 'form-field-row';
+    div.style = 'display:flex; gap:15px; margin-bottom:15px; align-items:center; background:#f9f9f9; padding:10px; border-radius:8px; border:1px solid #eee;';
+    div.innerHTML = `
+        <span style="font-weight:bold; color:#e74c3c; width:80px;">{field-${fieldCount}}</span>
+        <input type="text" class="field-question" placeholder="Wie lautet die Frage?" style="flex:1; margin:0;">
+        <label style="margin:0; display:flex; align-items:center; gap:5px;"><input type="checkbox" class="field-required" checked> Pflicht?</label>
+    `;
+    container.appendChild(div);
+}
+
+// DOCX Ausleser
+function handleDocxUpload(event) {
+    const file = event.target.files[0];
+    if (!file) return;
+
+    const reader = new FileReader();
+    reader.onload = function(e) {
+        const arrayBuffer = e.target.result;
+        // Mammoth liest die Word-Datei im Hintergrund als HTML aus
+        mammoth.convertToHtml({arrayBuffer: arrayBuffer})
+            .then(function(result) {
+                document.getElementById('form-template').value = result.value;
+                document.getElementById('upload-success').style.display = 'block';
+            })
+            .catch(function(err) {
+                alert("❌ Fehler beim Lesen der DOCX-Datei.");
+                console.error(err);
+            });
+    };
+    reader.readAsArrayBuffer(file);
+}
+
+async function saveForm() {
+    const title = document.getElementById('form-title').value;
+    const template = document.getElementById('form-template').value;
+    const questions = document.querySelectorAll('.field-question');
+    const requireds = document.querySelectorAll('.field-required');
+    
+    if(!title || !template) return alert("Titel und DOCX-Vorlage fehlen!");
+
+    const fields = [];
+    for(let i=0; i<questions.length; i++) {
+        if(questions[i].value.trim() !== '') {
+            fields.push({ question: questions[i].value, isRequired: requireds[i].checked });
+        }
+    }
+
+    await fetch(`${API}/forms`, {
+        method: 'POST', headers: {'Content-Type':'application/json'},
+        body: JSON.stringify({ title, template, fields, executedBy: currentUser.username })
+    });
+    alert("Fragebogen erfolgreich erstellt!");
+    loadForms();
+}
+
+function openForm(id) {
+    currentFillingForm = allForms.find(f => f.id === id);
+    if(!currentFillingForm) return;
+
+    document.getElementById('forms-list').style.display = 'none';
+    document.getElementById('form-fill-container').style.display = 'block';
+    document.getElementById('fill-form-title').innerText = currentFillingForm.title;
+
+    const container = document.getElementById('fill-form-fields');
+    container.innerHTML = currentFillingForm.fields.map((field, index) => `
+        <div style="margin-bottom:15px;">
+            <label style="font-weight:bold;">${field.question} ${field.is_required ? '<span style="color:red;">*</span>' : ''}</label>
+            <textarea id="answer-${index}" class="form-answer" style="min-height:60px;" ${field.is_required ? 'required' : ''}></textarea>
+        </div>
+    `).join('');
+}
+
+function cancelFillForm() { currentFillingForm = null; loadForms(); }
+
+async function submitForm() {
+    if(!currentFillingForm) return;
+
+    const answers = [];
+    let allValid = true;
+
+    currentFillingForm.fields.forEach((field, index) => {
+        const val = document.getElementById(`answer-${index}`).value;
+        if(field.is_required && val.trim() === '') allValid = false;
+        answers.push(val);
+    });
+
+    if(!allValid) return alert("Bitte fülle alle markierten Pflichtfelder aus!");
+
+    const res = await fetch(`${API}/forms/submit`, {
+        method: 'POST', headers: {'Content-Type':'application/json'},
+        body: JSON.stringify({ formId: currentFillingForm.id, username: currentUser.username, answers })
+    });
+    const d = await res.json();
+    
+    if(d.success) {
+        generateDocument(answers, d.submissionId);
+        alert("Dokument wurde in der Akte gespeichert und wird heruntergeladen!");
+        cancelFillForm();
+    }
+}
+
+// 🪄 MAGIC: DIREKT ALS PDF AUSSPUCKEN 🪄
+function generateDocument(answers, submissionId) {
+    let htmlContent = currentFillingForm.template;
+    
+    if(!htmlContent) return alert("Fehler: Keine gültige Vorlage gefunden.");
+
+    // 1. System-Variablen ersetzen (z.B. {fileNumber} wird zu 0001)
+    htmlContent = htmlContent.replace(/{fileNumber}/g, String(submissionId).padStart(4, '0'));
+    htmlContent = htmlContent.replace(/{currentUserName}/g, currentUser.username);
+    htmlContent = htmlContent.replace(/{generatedDateLong}/g, new Date().toLocaleDateString('de-DE'));
+    htmlContent = htmlContent.replace(/{generatedTime}/g, new Date().toLocaleTimeString('de-DE', {hour: '2-digit', minute:'2-digit'}));
+
+    // 2. User-Antworten einsetzen
+    answers.forEach((ans, idx) => {
+        const regex = new RegExp(`{field-${idx+1}}`, 'g');
+        htmlContent = htmlContent.replace(regex, ans.replace(/\n/g, '<br>') || '');
+    });
+
+    // 3. Unsichtbaren Container für den PDF Renderer bauen
+    const printDiv = document.createElement('div');
+    printDiv.innerHTML = `
+        <div style="padding:20px; font-family: 'Segoe UI', Arial, sans-serif; color:#000; font-size:14px; line-height: 1.6;">
+            ${htmlContent}
+        </div>
+    `;
+    
+    // 4. PDF Einstellungen und sofortiger Download
+    const opt = {
+      margin:       15,
+      filename:     `Akte_${String(submissionId).padStart(4,'0')}_${currentUser.username}.pdf`,
+      image:        { type: 'jpeg', quality: 0.98 },
+      html2canvas:  { scale: 2 },
+      jsPDF:        { unit: 'mm', format: 'a4', orientation: 'portrait' }
+    };
+
+    html2pdf().set(opt).from(printDiv).save();
+}

@@ -35,6 +35,31 @@ async function initDB() {
             created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
         );`);
 
+        // NEU: Fragebögen und PDF-Vorlagen
+        await client.query(`CREATE TABLE IF NOT EXISTS forms (
+            id SERIAL PRIMARY KEY,
+            title TEXT NOT NULL,
+            template TEXT NOT NULL,
+            created_by TEXT,
+            created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+        );`);
+
+        await client.query(`CREATE TABLE IF NOT EXISTS form_fields (
+            id SERIAL PRIMARY KEY,
+            form_id INTEGER REFERENCES forms(id) ON DELETE CASCADE,
+            question TEXT NOT NULL,
+            is_required BOOLEAN DEFAULT TRUE,
+            field_order INTEGER
+        );`);
+
+        await client.query(`CREATE TABLE IF NOT EXISTS form_submissions (
+            id SERIAL PRIMARY KEY,
+            form_id INTEGER REFERENCES forms(id) ON DELETE CASCADE,
+            username TEXT,
+            answers JSONB,
+            created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+        );`);
+
         // NEUE SPALTEN FÜR ANNEHMEN/ABLEHNEN
         await client.query("ALTER TABLE meeting_points ADD COLUMN IF NOT EXISTS status TEXT DEFAULT 'pending'");
         await client.query("ALTER TABLE meeting_points ADD COLUMN IF NOT EXISTS managed_by TEXT");

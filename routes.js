@@ -143,8 +143,48 @@ router.delete('/ranks/:name', async (req, res) => {
 router.post('/register', async (req, res) => {
     try { await pool.query('INSERT INTO users (username, password_hash, full_name) VALUES ($1, $2, $3)', [req.body.username, await bcrypt.hash(req.body.password,10), req.body.fullName]); res.json({success:true}); } catch(e){res.status(400).json({error:'Vergeben'});}
 });
-router.post('/documents', async (req, res) => { await pool.query('INSERT INTO documents (title, content, created_by) VALUES ($1, $2, $3)', [req.body.title, req.body.content, req.body.createdBy]); res.json({success:true}); });
-router.get('/documents', async (req, res) => { const r = await pool.query('SELECT * FROM documents ORDER BY created_at DESC'); res.json(r.rows); });
+// --- FRAGEBÖGEN & PDF GENERATOR ---
+router.post('/forms', async (req, res) => {
+    const { title, template, fields, executedBy } = req.body;
+    const user = await getExecutorData(executedBy);
+    if (!user || (!user.permissions.includes('access_docs') && user.username !== 'admin')) return res.status(403).json({ error: 'Keine Berechtigung.' });
+
+    const client = await pool.connect();
+    try {
+        await client.query('BEGIN');
+        const formRes = await client.query('INSERT INTO forms (title, template, created_by) VALUES ($1, $2, $3) RETURNING id', [title, template, executedBy]);
+        const formId = formRes.rows[0].id;
+        
+        for(let i=0; i<fields.length; i++) {
+            await client.query('INSERT INTO form_fields (form_id, question, is_required, field_order) VALUES ($1, $2, $3, $4)', [formId, fields[i].question, fields[i].isRequired, i+1]);
+        }
+        await client.query('COMMIT');
+        res.json({success: true});
+    } catch(e) {
+        await client.query('ROLLBACK');
+        res.status(500).json({error: e.message});
+    } finally {
+        client.release();
+    }
+});
+
+router.get('/forms', async (req, res) => {
+    const formsRes = await pool.query('SELECT * FROM forms ORDER BY created_at DESC');
+    const fieldsRes = await pool.query('SELECT * FROM form_fields ORDER BY form_id, field_order ASC');
+    
+    const forms = formsRes.rows.map(f => {
+        f.fields = fieldsRes.rows.filter(field => field.form_id === f.id);
+        return f;
+    });
+    res.json(forms);
+});
+
+router.post('/forms/submit', async (req, res) => {
+    const { formId, username, answers } = req.body;
+    // Speichert die Abgabe und generiert die fortlaufende fileNumber (id)
+    const result = await pool.query('INSERT INTO form_submissions (form_id, username, answers) VALUES ($1, $2, $3) RETURNING id', [formId, username, JSON.stringify(answers)]);
+    res.json({ success: true, submissionId: result.rows[0].id });
+});
 router.get('/users', async (req, res) => { const r = await pool.query('SELECT u.id, u.username, u.full_name, u.rank, u.last_seen, r.color FROM users u LEFT JOIN ranks r ON u.rank = r.name ORDER BY u.id ASC'); res.json(r.rows); });
 router.post('/users/rank', async (req, res) => { await pool.query('UPDATE users SET rank = $1 WHERE username = $2', [req.body.newRank, req.body.username]); res.json({success:true}); });
 router.post('/users/kick', async (req, res) => { 
