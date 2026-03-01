@@ -81,7 +81,7 @@ router.delete('/meeting/:id', async (req, res) => {
 });
 
 // NEU: ALLES LÖSCHEN
-router.delete('/meeting/all', async (req, res) => {
+router.delete('/meeting-clear', async (req, res) => {
     const { executedBy } = req.body;
     const user = await getExecutorData(executedBy); 
     

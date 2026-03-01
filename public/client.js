@@ -233,17 +233,22 @@ async function deleteAllMeetingPoints() {
     
     if (confirmation !== "LÖSCHEN") {
         if (confirmation !== null) alert("Falsche Eingabe. Vorgang abgebrochen.");
-        return; // Bricht ab, wenn falsch oder auf "Abbrechen" geklickt wurde
+        return; 
     }
 
-    await fetch(`${API}/meeting/all`, {
-        method: 'DELETE', 
+    // Geänderter Pfad und POST-Methode, damit der Server es nicht verwechselt
+    const res = await fetch(`${API}/meeting-clear`, {
+        method: 'POST', 
         headers: {'Content-Type':'application/json'},
         body: JSON.stringify({ executedBy: currentUser.username })
     });
     
-    alert("Das Board wurde komplett geleert.");
-    loadMeetingPoints(); // Lädt das nun leere Board neu
+    if (res.ok) {
+        alert("Das Board wurde komplett geleert.");
+        loadMeetingPoints(); 
+    } else {
+        alert("Fehler beim Löschen des Boards!");
+    }
 }
 
 // --- RÄNGE ---
