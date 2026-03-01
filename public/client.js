@@ -427,26 +427,18 @@ function addFormField() {
     container.appendChild(div);
 }
 
-// DOCX Ausleser
+// DOCX Upload Handler (Speichert die originale Datei als Code, mit 100% Design)
 function handleDocxUpload(event) {
     const file = event.target.files[0];
     if (!file) return;
 
     const reader = new FileReader();
     reader.onload = function(e) {
-        const arrayBuffer = e.target.result;
-        // Mammoth liest die Word-Datei im Hintergrund als HTML aus
-        mammoth.convertToHtml({arrayBuffer: arrayBuffer})
-            .then(function(result) {
-                document.getElementById('form-template').value = result.value;
-                document.getElementById('upload-success').style.display = 'block';
-            })
-            .catch(function(err) {
-                alert("❌ Fehler beim Lesen der DOCX-Datei.");
-                console.error(err);
-            });
+        // Speichert die komplette Word-Datei inkl. Design als Code
+        document.getElementById('form-template').value = e.target.result;
+        document.getElementById('upload-success').style.display = 'block';
     };
-    reader.readAsArrayBuffer(file);
+    reader.readAsDataURL(file); // Liest die echte Datei ein
 }
 
 async function saveForm() {
@@ -470,14 +462,13 @@ async function saveForm() {
             body: JSON.stringify({ title, template, fields, executedBy: currentUser.username })
         });
         
-        // Prüfen, ob der Server WIRKLICH erfolgreich war
         if (!res.ok) {
             const errorData = await res.json();
-            return alert("❌ Fehler vom Server: " + (errorData.error || "Datei eventuell zu groß oder Datenbankfehler."));
+            return alert("❌ Fehler vom Server: " + (errorData.error || "Datei eventuell zu groß."));
         }
 
         alert("✅ Fragebogen erfolgreich im System gespeichert!");
-        loadForms(); // Lädt die Liste neu
+        loadForms(); 
     } catch (e) {
         alert("❌ Kritischer Fehler: " + e.message);
     }
@@ -529,40 +520,46 @@ async function submitForm() {
     }
 }
 
-// 🪄 MAGIC: DIREKT ALS PDF AUSSPUCKEN 🪄
+// 🪄 MAGIC: WORD-DATEI PERFEKT AUSFÜLLEN 🪄
 function generateDocument(answers, submissionId) {
-    let htmlContent = currentFillingForm.template;
-    
-    if(!htmlContent) return alert("Fehler: Keine gültige Vorlage gefunden.");
+    // 1. Gespeicherte Word-Datei laden
+    const base64Data = currentFillingForm.template.split(',')[1];
+    if(!base64Data) return alert("Fehler: Keine gültige Vorlage gefunden.");
 
-    // 1. System-Variablen ersetzen (z.B. {fileNumber} wird zu 0001)
-    htmlContent = htmlContent.replace(/{fileNumber}/g, String(submissionId).padStart(4, '0'));
-    htmlContent = htmlContent.replace(/{currentUserName}/g, currentUser.username);
-    htmlContent = htmlContent.replace(/{generatedDateLong}/g, new Date().toLocaleDateString('de-DE'));
-    htmlContent = htmlContent.replace(/{generatedTime}/g, new Date().toLocaleTimeString('de-DE', {hour: '2-digit', minute:'2-digit'}));
+    try {
+        // 2. Datei im Arbeitsspeicher öffnen
+        const zip = new PizZip(base64Data, {base64: true});
+        const doc = new window.docxtemplater(zip, {
+            paragraphLoop: true,
+            linebreaks: true,
+        });
 
-    // 2. User-Antworten einsetzen
-    answers.forEach((ans, idx) => {
-        const regex = new RegExp(`{field-${idx+1}}`, 'g');
-        htmlContent = htmlContent.replace(regex, ans.replace(/\n/g, '<br>') || '');
-    });
+        // 3. Platzhalter definieren
+        const data = {
+            fileNumber: String(submissionId).padStart(4, '0'),
+            currentUserName: currentUser.username,
+            generatedDateLong: new Date().toLocaleDateString('de-DE'),
+            generatedTime: new Date().toLocaleTimeString('de-DE', {hour: '2-digit', minute:'2-digit'})
+        };
 
-    // 3. Unsichtbaren Container für den PDF Renderer bauen
-    const printDiv = document.createElement('div');
-    printDiv.innerHTML = `
-        <div style="padding:20px; font-family: 'Segoe UI', Arial, sans-serif; color:#000; font-size:14px; line-height: 1.6;">
-            ${htmlContent}
-        </div>
-    `;
-    
-    // 4. PDF Einstellungen und sofortiger Download
-    const opt = {
-      margin:       15,
-      filename:     `Akte_${String(submissionId).padStart(4,'0')}_${currentUser.username}.pdf`,
-      image:        { type: 'jpeg', quality: 0.98 },
-      html2canvas:  { scale: 2 },
-      jsPDF:        { unit: 'mm', format: 'a4', orientation: 'portrait' }
-    };
+        // Antworten als {field-1}, {field-2} usw. einfügen
+        answers.forEach((ans, idx) => {
+            data[`field-${idx+1}`] = ans; 
+        });
 
-    html2pdf().set(opt).from(printDiv).save();
+        // 4. Word-Datei ausfüllen
+        doc.render(data);
+
+        // 5. Fertige Datei erzeugen
+        const out = doc.getZip().generate({
+            type: "blob",
+            mimeType: "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
+        });
+        
+        // 6. Automatisch herunterladen
+        saveAs(out, `Akte_${String(submissionId).padStart(4,'0')}_${currentUser.username}.docx`);
+    } catch (error) {
+        console.error(error);
+        alert("Fehler beim Erstellen des Dokuments. Sind die {Klammern} in der Word-Datei richtig gesetzt?");
+    }
 }
