@@ -464,12 +464,23 @@ async function saveForm() {
         }
     }
 
-    await fetch(`${API}/forms`, {
-        method: 'POST', headers: {'Content-Type':'application/json'},
-        body: JSON.stringify({ title, template, fields, executedBy: currentUser.username })
-    });
-    alert("Fragebogen erfolgreich erstellt!");
-    loadForms();
+    try {
+        const res = await fetch(`${API}/forms`, {
+            method: 'POST', headers: {'Content-Type':'application/json'},
+            body: JSON.stringify({ title, template, fields, executedBy: currentUser.username })
+        });
+        
+        // Prüfen, ob der Server WIRKLICH erfolgreich war
+        if (!res.ok) {
+            const errorData = await res.json();
+            return alert("❌ Fehler vom Server: " + (errorData.error || "Datei eventuell zu groß oder Datenbankfehler."));
+        }
+
+        alert("✅ Fragebogen erfolgreich im System gespeichert!");
+        loadForms(); // Lädt die Liste neu
+    } catch (e) {
+        alert("❌ Kritischer Fehler: " + e.message);
+    }
 }
 
 function openForm(id) {
