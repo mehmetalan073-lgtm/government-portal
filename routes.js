@@ -143,17 +143,33 @@ router.delete('/ranks/:name', async (req, res) => {
 router.post('/register', async (req, res) => {
     try { await pool.query('INSERT INTO users (username, password_hash, full_name) VALUES ($1, $2, $3)', [req.body.username, await bcrypt.hash(req.body.password,10), req.body.fullName]); res.json({success:true}); } catch(e){res.status(400).json({error:'Vergeben'});}
 });
+
 // --- FRAGEBÖGEN & PDF GENERATOR ---
 router.post('/forms', async (req, res) => {
-    const { title, template, fields, executedBy } = req.body;
+    const { id, title, template, fields, executedBy } = req.body;
     const user = await getExecutorData(executedBy);
-    if (!user || (!user.permissions.includes('access_docs') && user.username !== 'admin')) return res.status(403).json({ error: 'Keine Berechtigung.' });
+    
+    // Wenn bearbeitet wird: Braucht manage_ranks. Wenn neu erstellt wird: Braucht access_docs
+    if (id) {
+        if (!user || (!user.permissions.includes('manage_ranks') && user.username !== 'admin')) return res.status(403).json({ error: 'Keine Berechtigung zum Bearbeiten.' });
+    } else {
+        if (!user || (!user.permissions.includes('access_docs') && user.username !== 'admin')) return res.status(403).json({ error: 'Keine Berechtigung zum Erstellen.' });
+    }
 
     const client = await pool.connect();
     try {
         await client.query('BEGIN');
-        const formRes = await client.query('INSERT INTO forms (title, template, created_by) VALUES ($1, $2, $3) RETURNING id', [title, template, executedBy]);
-        const formId = formRes.rows[0].id;
+        let formId = id;
+        
+        if (id) {
+            // BEARBEITEN
+            await client.query('UPDATE forms SET title = $1, template = $2 WHERE id = $3', [title, template, id]);
+            await client.query('DELETE FROM form_fields WHERE form_id = $1', [id]); // Alte Fragen löschen
+        } else {
+            // NEU ERSTELLEN
+            const formRes = await client.query('INSERT INTO forms (title, template, created_by) VALUES ($1, $2, $3) RETURNING id', [title, template, executedBy]);
+            formId = formRes.rows[0].id;
+        }
         
         for(let i=0; i<fields.length; i++) {
             await client.query('INSERT INTO form_fields (form_id, question, is_required, field_order) VALUES ($1, $2, $3, $4)', [formId, fields[i].question, fields[i].isRequired, i+1]);
@@ -166,6 +182,17 @@ router.post('/forms', async (req, res) => {
     } finally {
         client.release();
     }
+});
+
+router.delete('/forms/:id', async (req, res) => {
+    const { executedBy } = req.body;
+    const user = await getExecutorData(executedBy);
+    
+    // Löschen braucht ebenfalls manage_ranks
+    if (!user || (!user.permissions.includes('manage_ranks') && user.username !== 'admin')) return res.status(403).json({ error: 'Keine Berechtigung zum Löschen.' });
+    
+    await pool.query('DELETE FROM forms WHERE id = $1', [req.params.id]);
+    res.json({ success: true });
 });
 
 router.get('/forms', async (req, res) => {

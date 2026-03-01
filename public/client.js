@@ -378,6 +378,7 @@ function logout(){location.reload()}
 // --- FRAGEBÖGEN & PDF GENERATOR ---
 let allForms = [];
 let currentFillingForm = null;
+let editingFormId = null; // NEU: Speichert, welcher Bogen gerade bearbeitet wird
 
 async function loadForms() {
     const res = await fetch(`${API}/forms`);
@@ -387,16 +388,28 @@ async function loadForms() {
     document.getElementById('form-fill-container').style.display = 'none';
     document.getElementById('form-create-container').style.display = 'none';
 
+    // Prüfen, ob der User die Berechtigung hat, Ränge zu verwalten
+    const canManageForms = currentUser.permissions.includes('manage_ranks') || currentUser.username === 'admin';
+
     document.getElementById('forms-list').innerHTML = allForms.map(f => `
-        <div class="card" onclick="openForm(${f.id})" style="cursor:pointer; border-left:4px solid #3498db;">
-            <h3 style="margin-top:0;">${f.title}</h3>
-            <small style="color:#7f8c8d;">Erstellt von ${f.created_by}</small><br>
-            <small>Enthält ${f.fields.length} Fragen</small>
+        <div class="card" style="border-left:4px solid #3498db; position:relative;">
+            <div onclick="openForm(${f.id})" style="cursor:pointer; padding-right:60px;">
+                <h3 style="margin-top:0;">${f.title}</h3>
+                <small style="color:#7f8c8d;">Erstellt von ${f.created_by}</small><br>
+                <small>Enthält ${f.fields.length} Fragen</small>
+            </div>
+            ${canManageForms ? `
+            <div style="position:absolute; top:15px; right:15px; display:flex; flex-direction:column; gap:5px;">
+                <button onclick="editForm(${f.id})" style="background:#f39c12; margin:0; padding:6px 10px; width:auto; border:none; border-radius:5px;">✏️</button>
+                <button onclick="deleteForm(${f.id})" style="background:#e74c3c; margin:0; padding:6px 10px; width:auto; border:none; border-radius:5px;">🗑️</button>
+            </div>
+            ` : ''}
         </div>
     `).join('');
 }
 
 function showCreateForm() {
+    editingFormId = null; // Wir erstellen einen NEUEN Bogen
     document.getElementById('forms-list').style.display = 'none';
     document.getElementById('form-create-container').style.display = 'block';
     document.getElementById('form-fields-builder').innerHTML = ''; 
@@ -404,7 +417,51 @@ function showCreateForm() {
     document.getElementById('form-template').value = '';
     document.getElementById('docx-upload').value = '';
     document.getElementById('upload-success').style.display = 'none';
+    document.getElementById('btn-save-form').innerText = "Fragebogen im System speichern";
     addFormField(); 
+}
+
+// NEU: Lädt den Bogen in den Editor, wenn man auf den Stift klickt
+function editForm(id) {
+    const f = allForms.find(x => x.id === id);
+    if(!f) return;
+    
+    editingFormId = id; // Setzt den Modus auf "Bearbeiten"
+    document.getElementById('forms-list').style.display = 'none';
+    document.getElementById('form-create-container').style.display = 'block';
+    
+    // Daten einfüllen
+    document.getElementById('form-title').value = f.title;
+    document.getElementById('form-template').value = f.template;
+    document.getElementById('upload-success').style.display = 'block';
+    document.getElementById('upload-success').innerText = "✅ Vorlage aus der Datenbank geladen. (Du kannst eine neue hochladen, um sie zu ersetzen)";
+    
+    // Alte Fragen wiederherstellen
+    const container = document.getElementById('form-fields-builder');
+    container.innerHTML = '';
+    f.fields.forEach((field, i) => {
+        const div = document.createElement('div');
+        div.className = 'form-field-row';
+        div.style = 'display:flex; gap:15px; margin-bottom:15px; align-items:center; background:#f9f9f9; padding:10px; border-radius:8px; border:1px solid #eee;';
+        div.innerHTML = `
+            <span style="font-weight:bold; color:#e74c3c; width:80px;">{field-${i+1}}</span>
+            <input type="text" class="field-question" value="${field.question}" style="flex:1; margin:0;">
+            <label style="margin:0; display:flex; align-items:center; gap:5px;"><input type="checkbox" class="field-required" ${field.is_required ? 'checked' : ''}> Pflicht?</label>
+        `;
+        container.appendChild(div);
+    });
+    
+    document.getElementById('btn-save-form').innerText = "Änderungen speichern";
+}
+
+// NEU: Bogen löschen
+async function deleteForm(id) {
+    if(!confirm("⚠️ Möchtest du diesen Fragebogen wirklich endgültig löschen?")) return;
+    await fetch(`${API}/forms/${id}`, {
+        method: 'DELETE', headers: {'Content-Type':'application/json'},
+        body: JSON.stringify({ executedBy: currentUser.username })
+    });
+    loadForms();
 }
 
 function cancelCreateForm() { loadForms(); }
@@ -423,18 +480,18 @@ function addFormField() {
     container.appendChild(div);
 }
 
-// DOCX Upload Handler (Speichert die originale Datei als Code, mit 100% Design)
+// DOCX Upload Handler
 function handleDocxUpload(event) {
     const file = event.target.files[0];
     if (!file) return;
 
     const reader = new FileReader();
     reader.onload = function(e) {
-        // Speichert die komplette Word-Datei inkl. Design als Code
         document.getElementById('form-template').value = e.target.result;
+        document.getElementById('upload-success').innerText = "✅ Vorlage erfolgreich eingelesen und bereit!";
         document.getElementById('upload-success').style.display = 'block';
     };
-    reader.readAsDataURL(file); // Liest die echte Datei ein
+    reader.readAsDataURL(file); 
 }
 
 async function saveForm() {
@@ -455,7 +512,8 @@ async function saveForm() {
     try {
         const res = await fetch(`${API}/forms`, {
             method: 'POST', headers: {'Content-Type':'application/json'},
-            body: JSON.stringify({ title, template, fields, executedBy: currentUser.username })
+            // NEU: Wir senden die ID mit, wenn wir im Bearbeiten-Modus sind
+            body: JSON.stringify({ id: editingFormId, title, template, fields, executedBy: currentUser.username })
         });
         
         if (!res.ok) {
