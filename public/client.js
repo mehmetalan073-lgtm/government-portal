@@ -92,14 +92,22 @@ function switchTab(t) {
     }
 }
 
-// NEU: Umschalten zwischen "Anfertigen" und "Ansehen"
+// NEU: Umschalten zwischen "Anfertigen" und "Ansehen" (inklusive Farbwechsel)
 function switchDocsSubTab(t) {
     document.getElementById('sub-docs-create').style.display = t === 'create' ? 'block' : 'none';
     document.getElementById('sub-docs-view').style.display = t === 'view' ? 'block' : 'none';
     
+    // Buttons abrufen
+    const btnCreate = document.getElementById('btn-sub-create');
+    const btnView = document.getElementById('btn-sub-view');
+
     if (t === 'create') {
+        btnCreate.style.background = '#2c3e50'; // Dunkel (Aktiv)
+        btnView.style.background = '#95a5a6';   // Hellgrau (Inaktiv)
         loadForms();
     } else if (t === 'view') {
+        btnCreate.style.background = '#95a5a6';   // Hellgrau (Inaktiv)
+        btnView.style.background = '#2c3e50'; // Dunkel (Aktiv)
         loadSubmittedDocs();
     }
 }
