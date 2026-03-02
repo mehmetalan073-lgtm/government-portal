@@ -1,0 +1,227 @@
+<!DOCTYPE html>
+<html lang="de">
+<head>
+    <meta charset="UTF-8">
+    <title>Regierungspanel</title>
+    <link rel="stylesheet" href="style.css?v=2">
+    <script src="https://unpkg.com/pizzip@3.1.4/dist/pizzip.js"></script>
+    <script src="https://unpkg.com/docxtemplater@3.37.11/build/docxtemplater.js"></script>
+    <script src="https://unpkg.com/file-saver@2.0.5/dist/FileSaver.min.js"></script>
+</head>
+<body>
+    <div id="login-screen" class="screen active">
+        <div class="login-box">
+            <h1>🏛️ Login</h1>
+            <input type="text" id="login-user" placeholder="Benutzername">
+            <input type="password" id="login-pass" placeholder="Passwort">
+            <button onclick="login()">Anmelden</button>
+            <p onclick="showRegister()" style="cursor:pointer; margin-top:20px; color:#bdc3c7;">Konto erstellen</p>
+            <div id="login-error" style="color:#e74c3c; margin-top:10px; display:none;"></div>
+            <div id="ban-timer" style="color:#e74c3c; font-weight:bold; margin-top:10px;"></div>
+        </div>
+    </div>
+
+    <div id="register-screen" class="screen" style="display:none;">
+        <div class="login-box">
+            <h1>📝 Registrieren</h1>
+            <input type="text" id="reg-user" placeholder="Username">
+            <input type="text" id="reg-name" placeholder="Name">
+            <input type="password" id="reg-pass" placeholder="Passwort">
+            <button onclick="register()">Konto erstellen</button>
+            <button onclick="showLogin()" style="background:#7f8c8d; margin-top:10px;">Zurück zum Login</button>
+        </div>
+    </div>
+
+    <div id="dashboard" class="screen" style="display:none;">
+        <nav class="sidebar">
+            <h2>Panel</h2>
+            <div class="nav-links">
+                <button id="nav-meeting" onclick="switchTab('meeting')" style="display:none; margin-bottom:15px; border-left:4px solid #f1c40f;">
+                    📢 Besprechung
+                </button>
+
+                <button id="nav-docs" onclick="switchTab('docs')" class="active">📄 Akten</button>
+                
+                <div style="margin-top: 15px;">
+                    <button onclick="toggleAdminMenu()" class="nav-folder">
+                        <span>🛡️ Verwaltung</span> <span id="admin-arrow">▶</span>
+                    </button>
+                    <div id="admin-submenu" style="display:none; overflow:hidden;">
+                        <button id="nav-users" onclick="switchTab('users')">👥 Personal <span class="lock">🔒</span></button>
+                        <button id="nav-ranks" onclick="switchTab('ranks')">⚙️ Ränge <span class="lock">🔒</span></button>
+                    </div>
+                </div>
+            </div>
+            <div class="user-profile-bottom">
+                <div id="profile-name" style="font-size:1.1em; font-weight:bold;"></div>
+                <div id="profile-rank" class="badge" style="margin-top:5px;"></div>
+                <button onclick="logout()" class="btn-danger" style="margin-top:15px; padding:10px;">Logout</button>
+            </div>
+        </nav>
+
+        <main class="content">
+            
+            <div id="tab-meeting" class="tab" style="display:none;">
+                <div style="display:flex; justify-content:space-between; align-items:center;">
+                    <h2>Führungsebenen Besprechung</h2>
+                    <button id="btn-delete-all-meeting" onclick="deleteAllMeetingPoints()" class="btn-danger" style="width:auto; padding:10px 20px; display:none; border:none; border-radius:8px;">⚠️ Board leeren</button>
+                </div>
+                
+                <div class="card" style="border-top: 5px solid #f1c40f;">
+                    <div style="display:flex; gap:10px;">
+                        <input id="meeting-text" placeholder="Neuen Punkt hinzufügen..." style="flex:3;">
+                        <select id="meeting-box-select" style="flex:1;">
+                            <option value="1">NCPD</option>
+                            <option value="2">NCSD</option>
+                            <option value="3">NCMD</option>
+                            <option value="4">FIB</option>
+                            <option value="5">DOJ</option>
+                        </select>
+                        <button onclick="addMeetingPoint()" style="flex:0.5; margin:10px 0;">+</button>
+                    </div>
+                </div>
+
+                <div class="meeting-grid">
+                    <div class="meeting-box" id="box-1">
+                        <h3>NCPD</h3>
+                        <div class="points-list" id="list-1"></div>
+                    </div>
+                    <div class="meeting-box" id="box-2">
+                        <h3>NCSD</h3>
+                        <div class="points-list" id="list-2"></div>
+                    </div>
+                    <div class="meeting-box" id="box-3">
+                        <h3>NCMD</h3>
+                        <div class="points-list" id="list-3"></div>
+                    </div>
+                        <div class="meeting-box" id="box-4">
+                        <h3>FIB</h3>
+                        <div class="points-list" id="list-4"></div>
+                    </div>
+                    <div class="meeting-box" id="box-5">
+                        <h3>DOJ</h3>
+                        <div class="points-list" id="list-5"></div>
+                    </div>
+                </div>
+            </div>
+
+            <div id="tab-docs" class="tab active">
+                <h2>📝 Aktensystem</h2>
+                
+                <div style="display:flex; gap:10px; margin-bottom:20px;">
+                    <button onclick="switchDocsSubTab('create')" style="flex:1; background:#34495e;">📝 Akten anfertigen</button>
+                    <button onclick="switchDocsSubTab('view')" style="flex:1; background:#7f8c8d;">📂 Akten ansehen</button>
+                </div>
+
+                <div id="sub-docs-create" style="display:block;">
+                    <div style="display:flex; justify-content:space-between; align-items:center;">
+                        <h3 style="margin:0;">Fragebögen & Vorlagen</h3>
+                        <button id="btn-create-form" onclick="showCreateForm()" style="display:none; width:auto; padding:10px 20px; background:#2980b9;">+ Fragebogen erstellen</button>
+                    </div>
+
+                    <div id="forms-list" class="grid-list" style="margin-top:20px;"></div>
+
+                    <div id="form-fill-container" class="card" style="display:none; border-top: 5px solid #27ae60;">
+                        <h3 id="fill-form-title"></h3>
+                        <p style="color:#7f8c8d; font-size:0.9em; margin-bottom:20px;">Fülle alle Pflichtfelder aus. Daraus wird automatisch eine PDF-Akte generiert.</p>
+                        <div id="fill-form-fields"></div>
+                        <div style="display:flex; gap:10px; margin-top:25px;">
+                            <button onclick="submitForm()" style="background:#27ae60;">💾 Speichern & PDF herunterladen</button>
+                            <button onclick="cancelFillForm()" style="background:#95a5a6; flex:0.5;">Abbrechen</button>
+                        </div>
+                    </div>
+
+                    <div id="form-create-container" class="card" style="display:none; border-top: 5px solid #e74c3c;">
+                        <h3>Neuen Fragebogen definieren</h3>
+                        <input id="form-title" placeholder="Titel des Fragebogens (z.B. SOCOM-Bewertungsbogen)">
+                        
+                        <hr style="margin:25px 0; opacity:0.3;">
+                        <h4>1. Fragen hinzufügen</h4>
+                        <div id="form-fields-builder"></div>
+                        <button onclick="addFormField()" style="background:#2ecc71; margin-top:15px; width:auto; padding:8px 15px;">+ Frage hinzufügen</button>
+
+                        <hr style="margin:25px 0; opacity:0.3;">
+                        <h4>2. DOCX Vorlage hochladen</h4>
+                        <p style="font-size:0.85em; color:#7f8c8d; line-height:1.5;">Lade hier deine <strong>.docx Word-Datei</strong> hoch.<br>
+                        Schreibe in deine Word-Datei einfach diese Platzhalter: <strong>{fileNumber}</strong>, <strong>{currentUserName}</strong>, <strong>{generatedDateLong}</strong>, <strong>{generatedTime}</strong>, <strong>{field-1}</strong>, <strong>{field-2}</strong> usw.</p>
+                        
+                        <div style="background:#f1f2f6; padding:15px; border-radius:8px; border:1px solid #bdc3c7;">
+                            <input type="file" id="docx-upload" accept=".docx" onchange="handleDocxUpload(event)" style="background:white; margin:0;">
+                        </div>
+                        
+                        <input type="hidden" id="form-template">
+                        <div id="upload-success" style="color:#27ae60; display:none; font-weight:bold; margin-top:10px;">✅ Vorlage erfolgreich eingelesen und bereit!</div>
+
+                        <div style="display:flex; gap:10px; margin-top:20px;">
+                            <button id="btn-save-form" onclick="saveForm()" style="background:#e74c3c;">Fragebogen im System speichern</button>
+                            <button onclick="cancelCreateForm()" style="background:#95a5a6; flex:0.5;">Abbrechen</button>
+                        </div>
+                    </div>
+                </div> <div id="sub-docs-view" style="display:none;">
+                    <h3>Eingereichte Akten ansehen</h3>
+                    <p style="color:#7f8c8d;">Hier werden in Zukunft die ausgefüllten Dokumente der Beamten aufgelistet.</p>
+                    <div id="submitted-docs-list" class="grid-list"></div>
+                </div>
+            </div>
+            
+            <div id="tab-users" class="tab" style="display:none;">
+                <h2>Personalübersicht</h2>
+                <input type="text" id="user-search" placeholder="🔍 Mitarbeiter suchen..." onkeyup="filterUsers()" style="padding:15px;">
+                <div id="users-list" class="grid-list" style="margin-top:25px;"></div>
+            </div>
+
+            <div id="user-modal" class="modal" style="display:none;">
+                <div class="modal-content">
+                    <h2 id="modal-username"></h2>
+                    <label>Rang zuweisen:</label>
+                    <select id="modal-rank-select" style="margin-bottom:20px;"></select>
+                    <button onclick="saveUserRank()">Speichern</button>
+                    <hr style="margin:25px 0; opacity:0.3">
+                    <div id="kick-section">
+                        <h3 style="color:#e74c3c; margin-top:0;">Maßnahmen</h3>
+                        <input type="text" id="kick-reason" placeholder="Grund für Kick/Bann">
+                        <div style="display:flex; align-items:center; gap:10px; margin:15px 0;">
+                            <input type="checkbox" id="kick-ban-check" onchange="toggleBanInput()" style="width:auto; margin:0;">
+                            <label for="kick-ban-check">Auch zeitweise sperren?</label>
+                        </div>
+                        <div id="ban-duration-box" style="display:none;">
+                            <input type="number" id="kick-minutes" placeholder="Dauer in Minuten" value="5">
+                        </div>
+                        <button onclick="kickUser()" class="btn-danger">Ausführen</button>
+                    </div>
+                    <button onclick="closeModal()" style="background:#95a5a6; margin-top:15px;">Abbrechen</button>
+                </div>
+            </div>
+
+            <div id="tab-ranks" class="tab" style="display:none;">
+                <h2>Rangverwaltung</h2>
+                <div class="card" id="rank-form-container" style="border-left:6px solid #3498db;">
+                    <h3 id="rank-form-title">Rang erstellen / bearbeiten</h3>
+                    <div style="display:grid; grid-template-columns: 2fr 1fr; gap:15px;">
+                        <input id="new-rank-name" placeholder="Rang Name">
+                        <input type="color" id="new-rank-color" value="#3498db" style="height:50px; width:100%; cursor:pointer;">
+                    </div>
+                    <div style="margin:20px 0; display:grid; grid-template-columns: 1fr 1fr; gap:10px;">
+                        <label><input type="checkbox" id="perm-meeting"> 📢 Besprechung sehen</label>
+                        <label><input type="checkbox" id="perm-meeting-manage"> ✅ Besprechung abhaken</label>
+                        
+                        <label><input type="checkbox" id="perm-docs"> 📝 Fragebogen Hinzufügen</label>
+                        <label><input type="checkbox" id="perm-users"> 👥 Personal verwalten</label>
+                        <label><input type="checkbox" id="perm-kick"> 👢 Kicken/Bannen</label>
+                        <label><input type="checkbox" id="perm-ranks"> ⚙️ Ränge bearbeiten</label>
+                    </div>
+                    <div style="display:flex; gap:10px;">
+                        <button onclick="saveRank()" id="btn-save-rank" style="flex:2;">Neuen Rang erstellen</button>
+                        <button onclick="deleteRankTrigger()" id="btn-delete-rank" class="btn-danger" style="display:none; flex:1;">Löschen</button>
+                        <button onclick="cancelRankEdit()" id="btn-cancel-rank" style="display:none; background:#95a5a6; flex:1;">Abbrechen</button>
+                    </div>
+                </div>
+
+                <h3>Hierarchie</h3>
+                <div id="ranks-list-container" class="grid-list"></div>
+            </div>
+        </main>
+    </div>
+    <script src="client.js?v=11"></script>
+</body>
+</html>
