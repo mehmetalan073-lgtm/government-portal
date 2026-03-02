@@ -112,10 +112,140 @@ function switchDocsSubTab(t) {
     }
 }
 
-// NEU: Platzhalter für die zukünftige "Ansehen"-Seite
+// --- AKTEN ANSICHT & ARCHIV ---
+let allSubmissions = [];
+
 async function loadSubmittedDocs() {
+    const res = await fetch(`${API}/forms/submissions`);
+    allSubmissions = await res.json();
+    renderSubmittedDocs(); 
+}
+
+function renderSubmittedDocs() {
+    const filter = document.getElementById('docs-filter').value;
+    const sort = document.getElementById('docs-sort').value;
+    const search = document.getElementById('docs-search').value.toLowerCase();
     const list = document.getElementById('submitted-docs-list');
-    list.innerHTML = '<div class="card" style="text-align:center; padding:30px; color:#7f8c8d;">Die Ansichts-Funktion für eingereichte Akten wird demnächst implementiert.</div>';
+    
+    // 1. Filtern (Meine, Alle, Markiert + Suche)
+    let filtered = allSubmissions.filter(sub => {
+        const isMarked = (sub.marked_by || []).includes(currentUser.username);
+        const matchFilter = filter === 'all' || 
+                            (filter === 'mine' && sub.username === currentUser.username) ||
+                            (filter === 'marked' && isMarked);
+        const matchSearch = sub.form_title.toLowerCase().includes(search) || sub.username.toLowerCase().includes(search) || String(sub.id).includes(search);
+        return matchFilter && matchSearch;
+    });
+
+    // 2. Sortieren (Nach Datum)
+    filtered.sort((a, b) => {
+        const dateA = new Date(a.created_at).getTime();
+        const dateB = new Date(b.created_at).getTime();
+        return sort === 'newest' ? dateB - dateA : dateA - dateB;
+    });
+
+    if (filtered.length === 0) {
+        list.innerHTML = '<div style="grid-column: 1/-1; text-align:center; padding:40px; color:#7f8c8d; background:white; border-radius:12px;">📭 Keine Akten gefunden.</div>';
+        return;
+    }
+
+    // 3. Karten zeichnen
+    list.innerHTML = filtered.map(sub => {
+        const date = new Date(sub.created_at).toLocaleString('de-DE', {day:'2-digit', month:'2-digit', year:'numeric', hour:'2-digit', minute:'2-digit'});
+        const isMine = sub.username === currentUser.username;
+        const color = isMine ? '#27ae60' : '#3498db';
+        const badgeStr = isMine ? `<span class="badge" style="background:#27ae60;">👤 Meine Akte</span>` : `<span class="badge" style="background:#7f8c8d;">Von ${sub.username}</span>`;
+        
+        // Markierungs-Stern prüfen
+        const isMarked = (sub.marked_by || []).includes(currentUser.username);
+        const starColor = isMarked ? '#f1c40f' : '#bdc3c7'; // Gelb oder Grau
+
+        return `
+        <div class="card" style="border-left:5px solid ${color}; transition:transform 0.2s; position:relative;">
+            <div style="display:flex; justify-content:space-between; align-items:start;">
+                <h3 style="margin:0 0 10px 0; color:#2c3e50; cursor:pointer;" onclick="openDocModal(${sub.id})">Akte #${String(sub.id).padStart(4, '0')}</h3>
+                <div style="display:flex; gap:10px; align-items:center;">
+                    ${badgeStr}
+                    <span onclick="toggleMark(${sub.id})" style="font-size:1.5em; cursor:pointer; color:${starColor};" title="Akte markieren">★</span>
+                </div>
+            </div>
+            <div onclick="openDocModal(${sub.id})" style="cursor:pointer;">
+                <div style="font-weight:bold; font-size:1.1em; color:#34495e; margin-bottom:15px;">${sub.form_title}</div>
+                <div style="color:#7f8c8d; font-size:0.85em; display:flex; gap:15px;">
+                    <span>📅 ${date}</span>
+                    <span>📋 ${sub.questions.length} Felder</span>
+                </div>
+            </div>
+        </div>`;
+    }).join('');
+}
+
+// Akte als Favorit markieren / entmarkieren
+async function toggleMark(id) {
+    const res = await fetch(`${API}/forms/submissions/mark`, {
+        method: 'POST', headers: {'Content-Type': 'application/json'},
+        body: JSON.stringify({submissionId: id, username: currentUser.username})
+    });
+    const data = await res.json();
+    if(data.success) {
+        const sub = allSubmissions.find(s => s.id === id);
+        if(sub) sub.marked_by = data.markedBy;
+        renderSubmittedDocs(); // Aktualisiert die Sterne sofort
+    }
+}
+
+// Popup-Vorschau öffnen
+let currentViewSub = null;
+function openDocModal(id) {
+    currentViewSub = allSubmissions.find(s => s.id === id);
+    if(!currentViewSub) return;
+    
+    document.getElementById('doc-view-modal').style.display = 'flex';
+    document.getElementById('view-doc-title').innerText = `${currentViewSub.form_title}`;
+    document.getElementById('view-doc-badge').innerText = `Akte #${String(currentViewSub.id).padStart(4, '0')}`;
+    
+    const dateStr = new Date(currentViewSub.created_at).toLocaleString('de-DE', {day:'2-digit', month:'2-digit', year:'numeric', hour:'2-digit', minute:'2-digit'});
+    document.getElementById('view-doc-meta').innerHTML = `Eingereicht von <strong style="color:#2c3e50;">${currentViewSub.username}</strong> am ${dateStr}`;
+
+    const answersArray = typeof currentViewSub.answers === 'string' ? JSON.parse(currentViewSub.answers) : currentViewSub.answers;
+
+    let contentHTML = '';
+    currentViewSub.questions.forEach((q, idx) => {
+        contentHTML += `<div style="margin-bottom:20px;">
+            <div style="font-size:0.85em; color:#7f8c8d; text-transform:uppercase; margin-bottom:5px;">${q.question}</div>
+            <div style="font-size:1.1em; color:#2c3e50; padding:10px; background:#f8f9fa; border-left:4px solid #3498db; border-radius:4px;">
+                ${answersArray[idx] ? answersArray[idx].replace(/\n/g, '<br>') : '<span style="color:#bdc3c7; font-style:italic;">- Keine Angabe -</span>'}
+            </div>
+        </div>`;
+    });
+    document.getElementById('view-doc-content').innerHTML = contentHTML;
+    document.getElementById('btn-download-doc').onclick = () => downloadPastDocument(currentViewSub);
+}
+
+function closeDocModal() { document.getElementById('doc-view-modal').style.display = 'none'; }
+
+// Alte Akte als Word-Datei downloaden
+function downloadPastDocument(sub) {
+    const base64Data = sub.template.split(',')[1];
+    if(!base64Data) return alert("Fehler: Die DOCX-Vorlage existiert nicht mehr.");
+    try {
+        const zip = new PizZip(base64Data, {base64: true});
+        const doc = new window.docxtemplater(zip, { paragraphLoop: true, linebreaks: true });
+
+        const createdDate = new Date(sub.created_at);
+        const data = {
+            fileNumber: String(sub.id).padStart(4, '0'),
+            currentUserName: sub.username,
+            generatedDateLong: createdDate.toLocaleDateString('de-DE'),
+            generatedTime: createdDate.toLocaleTimeString('de-DE', {hour: '2-digit', minute:'2-digit'})
+        };
+        const answersArray = typeof sub.answers === 'string' ? JSON.parse(sub.answers) : sub.answers;
+        answersArray.forEach((ans, idx) => { data[`field-${idx+1}`] = ans; });
+
+        doc.render(data);
+        const out = doc.getZip().generate({ type: "blob", mimeType: "application/vnd.openxmlformats-officedocument.wordprocessingml.document" });
+        saveAs(out, `Akte_${String(sub.id).padStart(4,'0')}_${sub.username}.docx`);
+    } catch (error) { alert("Fehler beim Erstellen."); }
 }
 
 // --- MEETING LOGIK (NEU) ---

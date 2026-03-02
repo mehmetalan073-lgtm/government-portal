@@ -25,6 +25,9 @@ async function initDB() {
             name TEXT PRIMARY KEY, color TEXT NOT NULL, permissions TEXT DEFAULT '[]', level INTEGER DEFAULT 99
         );`);
 
+        // NEU: Speichert, welcher Nutzer eine Akte mit einem Stern markiert hat
+        await client.query("ALTER TABLE form_submissions ADD COLUMN IF NOT EXISTS marked_by JSONB DEFAULT '[]'::jsonb");
+
         // NEU: Tabelle für Besprechungspunkte
         await client.query(`CREATE TABLE IF NOT EXISTS meeting_points (
             id SERIAL PRIMARY KEY,
@@ -66,6 +69,7 @@ async function initDB() {
         await client.query("ALTER TABLE meeting_points ADD COLUMN IF NOT EXISTS reason TEXT");
         // Spalten sicherstellen (falls DB schon existiert)
         await client.query("ALTER TABLE ranks ADD COLUMN IF NOT EXISTS level INTEGER DEFAULT 99");
+        await client.query("ALTER TABLE form_submissions ADD COLUMN IF NOT EXISTS marked_by JSONB DEFAULT '[]'::jsonb");
 
         // Admin Rechte Update (Neue Rechte hinzufügen)
         const adminPerms = JSON.stringify(['access_docs', 'manage_users', 'manage_ranks', 'kick_users', 'access_meeting', 'manage_meeting']);

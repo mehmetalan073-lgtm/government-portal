@@ -220,4 +220,39 @@ router.post('/users/kick', async (req, res) => {
     res.json({success:true});
 });
 
+// --- AKTEN ARCHIV & MARKIERUNGEN ---
+router.get('/forms/submissions', async (req, res) => {
+    try {
+        const result = await pool.query(`
+            SELECT s.id, s.form_id, s.username, s.answers, s.created_at, s.marked_by, f.title as form_title, f.template 
+            FROM form_submissions s 
+            JOIN forms f ON s.form_id = f.id 
+            ORDER BY s.created_at DESC
+        `);
+        const fieldsRes = await pool.query('SELECT form_id, question, field_order FROM form_fields ORDER BY form_id, field_order ASC');
+        
+        const submissions = result.rows.map(sub => {
+            const fields = fieldsRes.rows.filter(f => f.form_id === sub.form_id);
+            return { ...sub, questions: fields };
+        });
+        res.json(submissions);
+    } catch(e) { res.status(500).json({error: e.message}); }
+});
+
+router.post('/forms/submissions/mark', async (req, res) => {
+    const { submissionId, username } = req.body;
+    try {
+        const subRes = await pool.query('SELECT marked_by FROM form_submissions WHERE id = $1', [submissionId]);
+        if (subRes.rows.length === 0) return res.status(404).json({error: 'Not found'});
+        
+        let markedBy = subRes.rows[0].marked_by || [];
+        // Wenn er schon markiert hat -> entfernen. Wenn nicht -> hinzufügen.
+        if (markedBy.includes(username)) markedBy = markedBy.filter(u => u !== username);
+        else markedBy.push(username);
+        
+        await pool.query('UPDATE form_submissions SET marked_by = $1 WHERE id = $2', [JSON.stringify(markedBy), submissionId]);
+        res.json({success: true, markedBy});
+    } catch(e) { res.status(500).json({error: e.message}); }
+});
+
 module.exports = router;
